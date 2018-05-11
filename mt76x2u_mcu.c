@@ -321,7 +321,8 @@ int mt76x2u_mcu_init_rx(struct mt76x2_dev *dev)
 {
 	int err;
 
-	err = mt76_usb_buf_alloc(&dev->mt76, &dev->mcu.res_u, 512);
+	err = mt76_usb_buf_alloc(&dev->mt76, &dev->mcu.res_u, 512,
+				 GFP_KERNEL);
 	if (err < 0)
 		return err;
 
@@ -436,7 +437,8 @@ mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, const void *data,
 	int err, len, pos = 0, max_len = max_payload - 8;
 	struct mt76_usb_buf buf;
 
-	err = mt76_usb_buf_alloc(&dev->mt76, &buf, max_payload);
+	err = mt76_usb_buf_alloc(&dev->mt76, &buf, max_payload,
+				 GFP_KERNEL);
 	if (err < 0)
 		return err;
 
