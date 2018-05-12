@@ -338,7 +338,10 @@ static void mt76_usb_complete_rx(struct urb *urb)
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	unsigned long flags;
 
-	if (mt76_usb_urb_error(urb))
+	if (mt76_usb_urb_disconnect(urb))
+		return;
+
+	if (urb->status)
 		dev_err(dev->dev, "rx urb failed: %d\n", urb->status);
 
 	spin_lock_irqsave(&q->lock, flags);
@@ -363,9 +366,6 @@ static void mt76_usb_rx_tasklet(unsigned long data)
 		buf = mt76_usb_get_next_rx_entry(dev);
 		if (!buf)
 			break;
-
-		if (buf->urb->status)
-			continue;
 
 		mt76_usb_process_rx_entry(dev, buf);
 		err = mt76_usb_submit_buf(dev, USB_DIR_IN, MT_EP_IN_PKT_RX,
