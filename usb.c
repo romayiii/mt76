@@ -385,10 +385,30 @@ static void mt76_usb_rx_tasklet(unsigned long data)
 	rcu_read_unlock();
 }
 
-int mt76_usb_alloc_rx(struct mt76_dev *dev)
+int mt76_usb_submit_rx_buffers(struct mt76_dev *dev)
 {
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	unsigned long flags;
+	int i, err;
+
+	spin_lock_irqsave(&q->lock, flags);
+	for (i = 0; i < MT_NUM_RX_ENTRIES; i++) {
+		err = mt76_usb_submit_buf(dev, USB_DIR_IN, MT_EP_IN_PKT_RX,
+					  &q->entry[i].ubuf, GFP_ATOMIC,
+					  mt76_usb_complete_rx, dev);
+		if (err < 0)
+			break;
+	}
+	q->head = q->tail = 0;
+	spin_unlock_irqrestore(&q->lock, flags);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(mt76_usb_submit_rx_buffers);
+
+int mt76_usb_alloc_rx(struct mt76_dev *dev)
+{
+	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	int i, err;
 
 	spin_lock_init(&q->lock);
@@ -406,36 +426,9 @@ int mt76_usb_alloc_rx(struct mt76_dev *dev)
 	}
 	q->ndesc = MT_NUM_RX_ENTRIES;
 
-	spin_lock_irqsave(&q->lock, flags);
-	for (i = 0; i < MT_NUM_RX_ENTRIES; i++) {
-		err = mt76_usb_submit_buf(dev, USB_DIR_IN, MT_EP_IN_PKT_RX,
-					  &q->entry[i].ubuf, GFP_ATOMIC,
-					  mt76_usb_complete_rx, dev);
-		if (err < 0)
-			break;
-	}
-	spin_unlock_irqrestore(&q->lock, flags);
-
-	return err;
+	return mt76_usb_submit_rx_buffers(dev);
 }
 EXPORT_SYMBOL_GPL(mt76_usb_alloc_rx);
-
-int mt76_usb_submit_rx_buffers(struct mt76_dev *dev)
-{
-	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-	int i, err;
-
-	for (i = 0; i < q->ndesc; i++) {
-		err = mt76_usb_submit_buf(dev, USB_DIR_IN, MT_EP_IN_PKT_RX,
-					  &q->entry[i].ubuf, GFP_KERNEL,
-					  mt76_usb_complete_rx, dev);
-		if (err < 0)
-			return err;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mt76_usb_submit_rx_buffers);
 
 void mt76_usb_free_rx(struct mt76_dev *dev)
 {

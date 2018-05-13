@@ -147,8 +147,8 @@ void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 
 void mt76x2u_stop_queues(struct mt76x2_dev *dev)
 {
-	tasklet_kill(&dev->mt76.usb.rx_tasklet);
-	tasklet_kill(&dev->mt76.usb.tx_tasklet);
+	tasklet_disable(&dev->mt76.usb.rx_tasklet);
+	tasklet_disable(&dev->mt76.usb.tx_tasklet);
 
 	mt76_usb_stop_rx(&dev->mt76);
 	mt76_usb_stop_tx(&dev->mt76);

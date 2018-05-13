@@ -86,8 +86,8 @@ static int __maybe_unused mt76x2u_suspend(struct usb_interface *intf,
 {
 	struct mt76x2_dev *dev = usb_get_intfdata(intf);
 
-	mt76x2u_stop_hw(dev);
 	mt76x2u_stop_queues(dev);
+	mt76x2u_stop_hw(dev);
 	usb_kill_urb(dev->mcu.res_u.urb);
 
 	return 0;
@@ -110,6 +110,9 @@ static int __maybe_unused mt76x2u_resume(struct usb_interface *intf)
 	err = mt76_usb_submit_rx_buffers(&dev->mt76);
 	if (err < 0)
 		return err;
+
+	tasklet_enable(&dev->mt76.usb.rx_tasklet);
+	tasklet_enable(&dev->mt76.usb.tx_tasklet);
 
 	return mt76x2u_init_hardware(dev);
 }
