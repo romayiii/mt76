@@ -526,16 +526,12 @@ void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames);
 
 /* usb */
-static inline bool mt76_usb_urb_disconnect(struct urb *urb)
-{
-	return urb->status == -ECONNRESET ||
-	       urb->status == -ESHUTDOWN ||
-	       urb->status == -ENOENT;
-}
-
 static inline bool mt76_usb_urb_error(struct urb *urb)
 {
-	return urb->status && !mt76_usb_urb_disconnect(urb);
+	return urb->status &&
+	       urb->status != -ECONNRESET &&
+	       urb->status != -ESHUTDOWN &&
+	       urb->status != -ENOENT;
 }
 
 /* Map hardware queues to usb endpoints */

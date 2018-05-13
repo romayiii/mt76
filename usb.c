@@ -338,11 +338,17 @@ static void mt76_usb_complete_rx(struct urb *urb)
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	unsigned long flags;
 
-	if (mt76_usb_urb_disconnect(urb))
+	switch (urb->status) {
+	case -ECONNRESET:
+	case -ESHUTDOWN:
+	case -ENOENT:
 		return;
-
-	if (urb->status)
+	default:
 		dev_err(dev->dev, "rx urb failed: %d\n", urb->status);
+		/* fall through */
+	case 0:
+		break;
+	}
 
 	spin_lock_irqsave(&q->lock, flags);
 	if (WARN_ONCE(q->entry[q->tail].ubuf.urb != urb, "rx urb mismatch"))
