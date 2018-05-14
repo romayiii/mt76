@@ -68,7 +68,7 @@ mt76x2u_tx_status(struct mt76x2_dev *dev, enum mt76_txq_id qid)
 	spin_lock_bh(&q->lock);
 	while (true) {
 		buf = &q->entry[q->head].ubuf;
-		if (!buf->done || q->head == q->tail)
+		if (!buf->done || !q->queued)
 			break;
 
 		skb = q->entry[q->head].skb;
