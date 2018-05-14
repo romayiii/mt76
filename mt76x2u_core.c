@@ -58,10 +58,12 @@ mt76x2u_set_txinfo(struct mt76x2_dev *dev, struct sk_buff *skb,
 }
 
 static void
-mt76x2u_tx_status(struct mt76x2_dev *dev, struct mt76_queue *q)
+mt76x2u_tx_status(struct mt76x2_dev *dev, enum mt76_txq_id qid)
 {
+	struct mt76_queue *q = &dev->mt76.q_tx[qid];
 	struct mt76_usb_buf *buf;
 	struct sk_buff *skb;
+	bool wake = false;
 
 	spin_lock_bh(&q->lock);
 	while (true) {
@@ -78,12 +80,14 @@ mt76x2u_tx_status(struct mt76x2_dev *dev, struct mt76_queue *q)
 		}
 
 		q->head = (q->head + 1) % q->ndesc;
-		if (--q->queued == q->ndesc - 8)
-			ieee80211_wake_queue(mt76_hw(dev),
-					     skb_get_queue_mapping(skb));
+		q->queued--;
 	}
 	mt76_txq_schedule(&dev->mt76, q);
+	wake = qid < IEEE80211_NUM_ACS && q->queued < q->ndesc - 8;
 	spin_unlock_bh(&q->lock);
+
+	if (wake)
+		ieee80211_wake_queue(mt76_hw(dev), qid);
 }
 
 void mt76x2u_tx_status_data(struct work_struct *work)
@@ -138,7 +142,7 @@ void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 	int i;
 
 	for (i = 0; i < IEEE80211_NUM_ACS; i++)
-		mt76x2u_tx_status(dev, &mdev->q_tx[i]);
+		mt76x2u_tx_status(dev, i);
 
 	if (!test_and_set_bit(MT76_READING_STATS, &dev->mt76.state))
 		ieee80211_queue_delayed_work(mt76_hw(dev), &dev->stat_work,
