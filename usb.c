@@ -436,16 +436,10 @@ EXPORT_SYMBOL_GPL(mt76_usb_alloc_rx);
 void mt76_usb_free_rx(struct mt76_dev *dev)
 {
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
-	struct mt76_usb_buf *buf;
 	int i;
 
-	for (i = 0; i < q->ndesc; i++) {
-		buf = &q->entry[i].ubuf;
-		if (!buf->urb)
-			continue;
-
-		mt76_usb_buf_free(dev, buf);
-	}
+	for (i = 0; i < q->ndesc; i++)
+		mt76_usb_buf_free(dev, &q->entry[i].ubuf);
 }
 EXPORT_SYMBOL_GPL(mt76_usb_free_rx);
 
