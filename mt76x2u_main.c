@@ -55,7 +55,7 @@ static int mt76x2u_add_interface(struct ieee80211_hw *hw,
 		mt76x2u_mac_setaddr(dev, vif->addr);
 
 	mvif->idx = idx;
-	mvif->group_wcid.idx = 254 - idx;
+	mvif->group_wcid.idx = MT_VIF_WCID(idx);
 	mvif->group_wcid.hw_key_idx = -1;
 	mt76x2_txq_init(dev, vif->txq);
 
