@@ -62,8 +62,10 @@ mt76x2u_tx_status(struct mt76x2_dev *dev, enum mt76_txq_id qid)
 {
 	struct mt76_queue *q = &dev->mt76.q_tx[qid];
 	struct mt76_usb_buf *buf;
-	struct sk_buff *skb;
+	struct sk_buff_head skbs;
 	bool wake = false;
+
+	__skb_queue_head_init(&skbs);
 
 	spin_lock_bh(&q->lock);
 	while (true) {
@@ -71,9 +73,7 @@ mt76x2u_tx_status(struct mt76x2_dev *dev, enum mt76_txq_id qid)
 		if (!buf->done || !q->queued)
 			break;
 
-		skb = q->entry[q->head].skb;
-		mt76x2u_remove_dma_hdr(skb);
-		mt76x2_tx_complete(dev, skb);
+		__skb_queue_tail(&skbs, q->entry[q->head].skb);
 		if (q->entry[q->head].schedule) {
 			q->entry[q->head].schedule = false;
 			q->swq_queued--;
@@ -85,6 +85,13 @@ mt76x2u_tx_status(struct mt76x2_dev *dev, enum mt76_txq_id qid)
 	mt76_txq_schedule(&dev->mt76, q);
 	wake = qid < IEEE80211_NUM_ACS && q->queued < q->ndesc - 8;
 	spin_unlock_bh(&q->lock);
+
+	while (!skb_queue_empty(&skbs)) {
+		struct sk_buff *skb = __skb_dequeue(&skbs);
+
+		mt76x2u_remove_dma_hdr(skb);
+		mt76x2_tx_complete(dev, skb);
+	}
 
 	if (wake)
 		ieee80211_wake_queue(mt76_hw(dev), qid);
