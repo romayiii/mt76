@@ -239,9 +239,6 @@ int mt76x2u_init_hardware(struct mt76x2_dev *dev)
 	for (i = 0; i < 256; i++)
 		mt76_wr(dev, MT_WCID_ATTR(i), 1);
 
-	for (i = 0; i < MT_MAX_VIFS; i++)
-		mt76x2_mac_wcid_setup(dev, MT_VIF_WCID(i), i, NULL);
-
 	mt76_clear(dev, MT_BEACON_TIME_CFG,
 		   MT_BEACON_TIME_CFG_TIMER_EN |
 		   MT_BEACON_TIME_CFG_SYNC_MODE |
