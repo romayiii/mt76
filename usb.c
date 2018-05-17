@@ -217,14 +217,11 @@ static int mt76_usb_set_endpoints(struct usb_interface *intf,
 int mt76_usb_buf_alloc(struct mt76_dev *dev, struct mt76_usb_buf *buf,
 		       size_t len, gfp_t gfp)
 {
-	struct usb_interface *intf = to_usb_interface(dev->dev);
-	struct usb_device *udev = interface_to_usbdev(intf);
-
 	buf->urb = usb_alloc_urb(0, gfp);
 	if (!buf->urb)
 		return -ENOMEM;
 
-	buf->buf = usb_alloc_coherent(udev, len, gfp, &buf->dma);
+	buf->buf = netdev_alloc_frag(len);
 	if (!buf->buf) {
 		usb_free_urb(buf->urb);
 		return -ENOMEM;
@@ -236,12 +233,9 @@ int mt76_usb_buf_alloc(struct mt76_dev *dev, struct mt76_usb_buf *buf,
 }
 EXPORT_SYMBOL_GPL(mt76_usb_buf_alloc);
 
-void mt76_usb_buf_free(struct mt76_dev *dev, struct mt76_usb_buf *buf)
+void mt76_usb_buf_free(struct mt76_usb_buf *buf)
 {
-	struct usb_interface *intf = to_usb_interface(dev->dev);
-	struct usb_device *udev = interface_to_usbdev(intf);
-
-	usb_free_coherent(udev, buf->len, buf->buf, buf->dma);
+	skb_free_frag(buf->buf);
 	usb_free_urb(buf->urb);
 }
 EXPORT_SYMBOL_GPL(mt76_usb_buf_free);
@@ -261,8 +255,6 @@ int mt76_usb_submit_buf(struct mt76_dev *dev, int dir, int index,
 
 	usb_fill_bulk_urb(buf->urb, udev, pipe, buf->buf, buf->len,
 			  complete_fn, context);
-	buf->urb->transfer_dma = buf->dma;
-	buf->urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 
 	return usb_submit_urb(buf->urb, gfp);
 }
@@ -305,30 +297,36 @@ static int
 mt76_usb_process_rx_entry(struct mt76_dev *dev,
 			  struct mt76_usb_buf *buf)
 {
-	int len, data_len = buf->urb->actual_length;
 	u8 *data = buf->buf;
 	struct sk_buff *skb;
+	int len;
 
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->state))
 		return 0;
 
-	while (data_len > 0) {
-		len = mt76_usb_get_rx_entry_len(data, data_len);
-		if (len < 0)
-			return len;
+	if (!data)
+		return -EINVAL;
 
-		skb = dev_alloc_skb(len);
-		if (!skb)
-			return -ENOMEM;
-
-		data += MT_DMA_HDR_LEN;
-		skb_put_data(skb, data, len);
-
-		dev->drv->rx_skb(dev, MT_RXQ_MAIN, skb);
-
-		data_len -= (MT_DMA_HDR_LEN + len + MT_FCE_INFO_LEN);
-		data += (len + MT_FCE_INFO_LEN);
+	len = mt76_usb_get_rx_entry_len(data, buf->urb->actual_length);
+	if (len < 0) {
+		skb_free_frag(data);
+		return len;
 	}
+
+	skb = build_skb(data, buf->len);
+	if (!skb) {
+		skb_free_frag(data);
+		return -ENOMEM;
+	}
+
+	skb_reserve(skb, MT_DMA_HDR_LEN);
+	if (skb->tail + len > skb->end) {
+		dev_kfree_skb(skb);
+		return -ENOMEM;
+	}
+
+	__skb_put(skb, len);
+	dev->drv->rx_skb(dev, MT_RXQ_MAIN, skb);
 
 	return 0;
 }
@@ -366,7 +364,6 @@ static void mt76_usb_rx_tasklet(unsigned long data)
 {
 	struct mt76_dev *dev = (struct mt76_dev *)data;
 	struct mt76_usb_buf *buf;
-	int err;
 
 	rcu_read_lock();
 
@@ -376,11 +373,14 @@ static void mt76_usb_rx_tasklet(unsigned long data)
 			break;
 
 		mt76_usb_process_rx_entry(dev, buf);
-		err = mt76_usb_submit_buf(dev, USB_DIR_IN, MT_EP_IN_PKT_RX,
-					  buf, GFP_ATOMIC,
-					  mt76_usb_complete_rx, dev);
-		if (err < 0)
+
+		buf->buf = netdev_alloc_frag(buf->len);
+		if (!buf->buf)
 			break;
+
+		mt76_usb_submit_buf(dev, USB_DIR_IN, MT_EP_IN_PKT_RX,
+				    buf, GFP_ATOMIC,
+				    mt76_usb_complete_rx, dev);
 	}
 	mt76_rx_poll_complete(dev, MT_RXQ_MAIN, NULL);
 
@@ -402,7 +402,6 @@ int mt76_usb_submit_rx_buffers(struct mt76_dev *dev)
 			break;
 	}
 	q->head = q->tail = 0;
-	q->queued = 0;
 	spin_unlock_irqrestore(&q->lock, flags);
 
 	return err;
@@ -439,7 +438,7 @@ void mt76_usb_free_rx(struct mt76_dev *dev)
 	int i;
 
 	for (i = 0; i < q->ndesc; i++)
-		mt76_usb_buf_free(dev, &q->entry[i].ubuf);
+		mt76_usb_buf_free(&q->entry[i].ubuf);
 }
 EXPORT_SYMBOL_GPL(mt76_usb_free_rx);
 

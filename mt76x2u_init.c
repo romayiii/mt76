@@ -23,17 +23,14 @@ static void mt76x2u_init_dma(struct mt76x2_dev *dev)
 {
 	u32 val = mt76_rr(dev, MT_VEND_ADDR(CFG, MT_USB_U3DMA_CFG));
 
-	val |= FIELD_PREP(MT_USB_DMA_CFG_RX_BULK_AGG_TOUT,
-			  MT_USB_AGGR_TIMEOUT) |
-	       FIELD_PREP(MT_USB_DMA_CFG_RX_BULK_AGG_LMT,
-			  MT_USB_AGGR_SIZE_LIMIT) |
-	       MT_USB_DMA_CFG_RX_DROP_OR_PAD |
+	val |= MT_USB_DMA_CFG_RX_DROP_OR_PAD |
 	       MT_USB_DMA_CFG_RX_BULK_EN |
 	       MT_USB_DMA_CFG_TX_BULK_EN;
-	if (dev->mt76.usb.in_max_packet >= 512)
-		val |= MT_USB_DMA_CFG_RX_BULK_AGG_EN;
-	else
-		val &= ~MT_USB_DMA_CFG_RX_BULK_AGG_EN;
+
+	/* disable AGGR_BULK_RX in order to receive one
+	 * frame in each rx urb and avoid copies
+	 */
+	val &= ~MT_USB_DMA_CFG_RX_BULK_AGG_EN;
 	mt76_wr(dev, MT_VEND_ADDR(CFG, MT_USB_U3DMA_CFG), val);
 }
 

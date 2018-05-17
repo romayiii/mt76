@@ -331,7 +331,7 @@ int mt76x2u_mcu_init_rx(struct mt76x2_dev *dev)
 				  mt76x2u_mcu_complete_urb,
 				  &dev->mcu.resp_cmpl);
 	if (err < 0)
-		mt76_usb_buf_free(&dev->mt76, &dev->mcu.res_u);
+		mt76_usb_buf_free(&dev->mcu.res_u);
 
 	return err;
 }
@@ -456,7 +456,7 @@ mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, const void *data,
 
 	/* we need to reset original buffer size */
 	buf.len = max_payload;
-	mt76_usb_buf_free(&dev->mt76, &buf);
+	mt76_usb_buf_free(&buf);
 
 	return err;
 }
@@ -663,5 +663,5 @@ int mt76x2u_mcu_init(struct mt76x2_dev *dev)
 void mt76x2u_mcu_deinit(struct mt76x2_dev *dev)
 {
 	usb_kill_urb(dev->mcu.res_u.urb);
-	mt76_usb_buf_free(&dev->mt76, &dev->mcu.res_u);
+	mt76_usb_buf_free(&dev->mcu.res_u);
 }

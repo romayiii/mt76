@@ -283,9 +283,9 @@ enum mt76_usb_out_ep {
 	__MT_EP_OUT_MAX,
 };
 
-#define MT_URB_SIZE		(PAGE_SIZE << 3)
-#define MT_NUM_TX_ENTRIES	128
-#define MT_NUM_RX_ENTRIES	16
+#define MT_URB_SIZE		2048
+#define MT_NUM_TX_ENTRIES	256
+#define MT_NUM_RX_ENTRIES	256
 struct mt76_usb {
 	struct mutex usb_ctrl_mtx;
 	u8 data[32];
@@ -550,7 +550,7 @@ int mt76_usb_init(struct mt76_dev *dev, struct usb_interface *intf);
 void mt76_usb_deinit(struct mt76_dev *dev);
 int mt76_usb_buf_alloc(struct mt76_dev *dev, struct mt76_usb_buf *buf,
 		       size_t len, gfp_t gfp);
-void mt76_usb_buf_free(struct mt76_dev *dev, struct mt76_usb_buf *buf);
+void mt76_usb_buf_free(struct mt76_usb_buf *buf);
 int mt76_usb_submit_buf(struct mt76_dev *dev, int dir, int index,
 			struct mt76_usb_buf *buf, gfp_t gfp,
 			usb_complete_t complete_fn, void *context);
