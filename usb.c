@@ -391,7 +391,7 @@ int mt76_usb_submit_rx_buffers(struct mt76_dev *dev)
 {
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	unsigned long flags;
-	int i, err;
+	int i, err = 0;
 
 	spin_lock_irqsave(&q->lock, flags);
 	for (i = 0; i < q->ndesc; i++) {
