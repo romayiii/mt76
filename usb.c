@@ -394,7 +394,7 @@ int mt76_usb_submit_rx_buffers(struct mt76_dev *dev)
 	int i, err;
 
 	spin_lock_irqsave(&q->lock, flags);
-	for (i = 0; i < MT_NUM_RX_ENTRIES; i++) {
+	for (i = 0; i < q->ndesc; i++) {
 		err = mt76_usb_submit_buf(dev, USB_DIR_IN, MT_EP_IN_PKT_RX,
 					  &q->entry[i].ubuf, GFP_ATOMIC,
 					  mt76_usb_complete_rx, dev);
