@@ -47,10 +47,18 @@ static int
 mt76x2u_set_txinfo(struct mt76x2_dev *dev, struct sk_buff *skb,
 		   struct mt76_wcid *wcid, u8 ep)
 {
-	enum mt76x2_qsel qsel = ep == 5 ? MT_QSEL_MGMT : MT_QSEL_EDCA;
-	u32 flags = FIELD_PREP(MT_TXD_INFO_QSEL, qsel) |
-		    MT_TXD_INFO_80211;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	enum mt76x2_qsel qsel;
+	u32 flags;
 
+	if ((info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) ||
+	    ep == MT_EP_OUT_HCCA)
+		qsel = MT_QSEL_MGMT;
+	else
+		qsel = MT_QSEL_EDCA;
+
+	flags = FIELD_PREP(MT_TXD_INFO_QSEL, qsel) |
+		MT_TXD_INFO_80211;
 	if (!wcid || wcid->hw_key_idx == 0xff || wcid->sw_iv)
 		flags |= MT_TXD_INFO_WIV;
 
