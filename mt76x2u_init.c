@@ -139,21 +139,19 @@ struct mt76x2_dev *mt76x2u_alloc_device(struct device *pdev)
 		.tx_complete_skb = mt76x2u_tx_complete_skb,
 		.rx_skb = mt76x2_queue_rx_skb,
 	};
-	struct ieee80211_hw *hw;
 	struct mt76x2_dev *dev;
+	struct mt76_dev *mdev;
 
-	hw = ieee80211_alloc_hw(sizeof(*dev), &mt76x2u_ops);
-	if (!hw)
+	mdev = mt76_alloc_device(sizeof(*dev), &mt76x2u_ops);
+	if (!mdev)
 		return NULL;
 
-	dev = hw->priv;
-	dev->mt76.dev = pdev;
-	dev->mt76.hw = hw;
-	dev->mt76.drv = &drv_ops;
+	dev = container_of(mdev, struct mt76x2_dev, mt76);
+	mdev->dev = pdev;
+	mdev->drv = &drv_ops;
 
 	init_completion(&dev->mcu.resp_cmpl);
 
-	spin_lock_init(&dev->mt76.rx_lock);
 	mutex_init(&dev->mcu.mutex);
 	mutex_init(&dev->mutex);
 
