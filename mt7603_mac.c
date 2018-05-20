@@ -1181,9 +1181,10 @@ static void mt7603_pse_reset(struct mt7603_dev *dev)
 
 	if (!mt76_poll_msec(dev, MT_MCU_DEBUG_RESET,
 			    MT_MCU_DEBUG_RESET_PSE_S,
-			    MT_MCU_DEBUG_RESET_PSE_S, 500))
+			    MT_MCU_DEBUG_RESET_PSE_S, 500)) {
+		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
 		dev->pse_reset_failed++;
-	else
+	} else
 		dev->pse_reset_failed = 0;
 
 	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
@@ -1284,6 +1285,9 @@ static u32 mt7603_dma_debug(struct mt7603_dev *dev, u8 index)
 
 static bool mt7603_rx_fifo_busy(struct mt7603_dev *dev)
 {
+	if (is_mt7628(dev))
+		return mt7603_dma_debug(dev, 9) & BIT(9);
+
 	return mt7603_dma_debug(dev, 2) & BIT(8);
 }
 
@@ -1339,6 +1343,9 @@ static bool mt7603_rx_pse_busy(struct mt7603_dev *dev)
 	addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR + MT_CLIENT_STATUS);
 	mt76_wr(dev, addr, 3);
 	val = mt76_rr(dev, addr) >> 16;
+
+	if (is_mt7628(dev) && (val & 0x4001) == 0x4001)
+		return true;
 
 	return (val & 0x8001) == 0x8001 || (val & 0xe001) == 0xe001;
 }
