@@ -93,6 +93,9 @@ mt76x2u_tx_status(struct mt76x2_dev *dev, enum mt76_txq_id qid)
 	}
 	mt76_txq_schedule(&dev->mt76, q);
 	wake = qid < IEEE80211_NUM_ACS && q->queued < q->ndesc - 8;
+	if (!q->queued)
+		wake_up(&dev->mt76.tx_wait);
+
 	spin_unlock_bh(&q->lock);
 
 	if (wake)
