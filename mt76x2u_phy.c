@@ -132,7 +132,7 @@ mt76x2u_phy_update_channel_gain(struct mt76x2_dev *dev)
 				 dev->cal.avg_rssi[1]) / 512;
 
 	freq = dev->mt76.chandef.chan->center_freq;
-	freq1= dev->mt76.chandef.center_freq1;
+	freq1 = dev->mt76.chandef.center_freq1;
 
 	switch (dev->mt76.chandef.width) {
 	case NL80211_CHAN_WIDTH_80: {
