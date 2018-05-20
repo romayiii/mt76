@@ -68,9 +68,10 @@ mt76x2u_set_channel(struct mt76x2_dev *dev,
 {
 	int err;
 
-	mt76_set_channel(&dev->mt76);
-
 	cancel_delayed_work_sync(&dev->cal_work);
+	set_bit(MT76_RESET, &dev->mt76.state);
+
+	mt76_set_channel(&dev->mt76);
 
 	mt76_clear(dev, MT_TXOP_CTRL_CFG, BIT(20));
 	mt76_clear(dev, MT_TXOP_HLDR_ET, BIT(1));
@@ -79,6 +80,9 @@ mt76x2u_set_channel(struct mt76x2_dev *dev,
 	err = mt76x2u_phy_set_channel(dev, chandef);
 
 	mt76x2u_mac_resume(dev);
+
+	clear_bit(MT76_RESET, &dev->mt76.state);
+	mt76_txq_schedule_all(&dev->mt76);
 
 	return err;
 }
@@ -158,7 +162,6 @@ mt76x2u_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	struct mt76x2_dev *dev = hw->priv;
 
 	clear_bit(MT76_SCANNING, &dev->mt76.state);
-	mt76_txq_schedule_all(&dev->mt76);
 }
 
 const struct ieee80211_ops mt76x2u_ops = {
