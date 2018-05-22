@@ -51,7 +51,7 @@ __mt76_get_txwi(struct mt76_dev *dev)
 	return t;
 }
 
-static struct mt76_txwi_cache *
+struct mt76_txwi_cache *
 mt76_get_txwi(struct mt76_dev *dev)
 {
 	struct mt76_txwi_cache *t = __mt76_get_txwi(dev);
@@ -90,80 +90,6 @@ mt76_txq_get_qid(struct ieee80211_txq *txq)
 
 	return txq->ac;
 }
-
-int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
-		      struct sk_buff *skb, struct mt76_wcid *wcid,
-		      struct ieee80211_sta *sta)
-{
-	struct mt76_queue_entry e;
-	struct mt76_txwi_cache *t;
-	struct mt76_queue_buf buf[32];
-	struct sk_buff *iter;
-	dma_addr_t addr;
-	int len;
-	u32 tx_info = 0;
-	int n, ret;
-
-	t = mt76_get_txwi(dev);
-	if (!t) {
-		ieee80211_free_txskb(dev->hw, skb);
-		return -ENOMEM;
-	}
-
-	dma_sync_single_for_cpu(dev->dev, t->dma_addr, sizeof(t->txwi),
-				DMA_TO_DEVICE);
-	ret = dev->drv->tx_prepare_skb(dev, &t->txwi, skb, q, wcid, sta,
-				       &tx_info);
-	dma_sync_single_for_device(dev->dev, t->dma_addr, sizeof(t->txwi),
-				   DMA_TO_DEVICE);
-	if (ret < 0)
-		goto free;
-
-	len = skb->len - skb->data_len;
-	addr = dma_map_single(dev->dev, skb->data, len, DMA_TO_DEVICE);
-	if (dma_mapping_error(dev->dev, addr)) {
-		ret = -ENOMEM;
-		goto free;
-	}
-
-	n = 0;
-	buf[n].addr = t->dma_addr;
-	buf[n++].len = dev->drv->txwi_size;
-	buf[n].addr = addr;
-	buf[n++].len = len;
-
-	skb_walk_frags(skb, iter) {
-		if (n == ARRAY_SIZE(buf))
-			goto unmap;
-
-		addr = dma_map_single(dev->dev, iter->data, iter->len,
-				      DMA_TO_DEVICE);
-		if (dma_mapping_error(dev->dev, addr))
-			goto unmap;
-
-		buf[n].addr = addr;
-		buf[n++].len = iter->len;
-	}
-
-	if (q->queued + (n + 1) / 2 >= q->ndesc - 1)
-		goto unmap;
-
-	return dev->queue_ops->add_buf(dev, q, buf, n, tx_info, skb, t);
-
-unmap:
-	ret = -ENOMEM;
-	for (n--; n > 0; n--)
-		dma_unmap_single(dev->dev, buf[n].addr, buf[n].len,
-				 DMA_TO_DEVICE);
-
-free:
-	e.skb = skb;
-	e.txwi = t;
-	dev->drv->tx_complete_skb(dev, q, &e, true);
-	mt76_put_txwi(dev, t);
-	return ret;
-}
-EXPORT_SYMBOL_GPL(mt76_tx_queue_skb);
 
 void
 mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
