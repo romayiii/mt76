@@ -610,3 +610,5 @@ int mt76_usb_init(struct mt76_dev *dev,
 }
 EXPORT_SYMBOL_GPL(mt76_usb_init);
 
+MODULE_AUTHOR("Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>");
+MODULE_LICENSE("Dual BSD/GPL");

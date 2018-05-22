@@ -120,7 +120,6 @@ static int __maybe_unused mt76x2u_resume(struct usb_interface *intf)
 MODULE_DEVICE_TABLE(usb, mt76x2u_device_table);
 MODULE_FIRMWARE(MT7662U_FIRMWARE);
 MODULE_FIRMWARE(MT7662U_ROM_PATCH);
-MODULE_LICENSE("Dual BSD/GPL");
 
 static struct usb_driver mt76x2u_driver = {
 	.name		= KBUILD_MODNAME,
@@ -136,3 +135,6 @@ static struct usb_driver mt76x2u_driver = {
 	.disable_hub_initiated_lpm = 1,
 };
 module_usb_driver(mt76x2u_driver);
+
+MODULE_AUTHOR("Lorenzo Bianconi <lorenzo.bianconi83@gmail.com>");
+MODULE_LICENSE("Dual BSD/GPL");
