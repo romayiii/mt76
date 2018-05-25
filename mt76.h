@@ -67,7 +67,6 @@ struct mt76_queue_buf {
 struct mt76_usb_buf {
 	struct mt76_dev *dev;
 	struct urb *urb;
-	dma_addr_t dma;
 	void *buf;
 	size_t len;
 	bool done;
