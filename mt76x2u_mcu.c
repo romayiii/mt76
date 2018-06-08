@@ -65,7 +65,7 @@ static int mt76x2u_mcu_wait_resp(struct mt76x2_dev *dev, u8 seq)
 		if (buf->urb->status)
 			return -EIO;
 
-		rxfce = get_unaligned_le32(buf->buf);
+		rxfce = get_unaligned_le32(sg_virt(&buf->urb->sg[0]));
 		ret = mt76_usb_submit_buf(&dev->mt76, USB_DIR_IN,
 					  MT_EP_IN_CMD_RESP,
 					  buf, GFP_KERNEL,
@@ -321,8 +321,8 @@ int mt76x2u_mcu_init_rx(struct mt76x2_dev *dev)
 {
 	int err;
 
-	err = mt76_usb_buf_alloc(&dev->mt76, &dev->mcu.res_u, 512,
-				 GFP_KERNEL);
+	err = mt76_usb_buf_alloc(&dev->mt76, &dev->mcu.res_u, 1,
+				 512, 512, GFP_KERNEL);
 	if (err < 0)
 		return err;
 
@@ -381,8 +381,9 @@ static void mt7612u_mcu_reset_wmt(struct mt76x2_dev *dev)
 
 static int
 __mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, struct mt76_usb_buf *buf,
-			   const void *data, int len, u32 dst_addr)
+			   const void *fw_data, int len, u32 dst_addr)
 {
+	u8 *data = sg_virt(&buf->urb->sg[0]);
 	DECLARE_COMPLETION_ONSTACK(cmpl);
 	__le32 info;
 	u32 val;
@@ -392,9 +393,9 @@ __mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, struct mt76_usb_buf *buf,
 			   FIELD_PREP(MT_MCU_MSG_LEN, len) |
 			   MT_MCU_MSG_TYPE_CMD);
 
-	memcpy(buf->buf, &info, sizeof(info));
-	memcpy(buf->buf + sizeof(info), data, len);
-	memset(buf->buf + sizeof(info) + len, 0, 4);
+	memcpy(data, &info, sizeof(info));
+	memcpy(data + sizeof(info), fw_data, len);
+	memset(data + sizeof(info) + len, 0, 4);
 
 	mt76_usb_single_wr(&dev->mt76, MT_VEND_WRITE_FCE,
 			   MT_FCE_DMA_ADDR, dst_addr);
@@ -437,8 +438,8 @@ mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, const void *data,
 	int err, len, pos = 0, max_len = max_payload - 8;
 	struct mt76_usb_buf buf;
 
-	err = mt76_usb_buf_alloc(&dev->mt76, &buf, max_payload,
-				 GFP_KERNEL);
+	err = mt76_usb_buf_alloc(&dev->mt76, &buf, 1, max_payload,
+				 max_payload, GFP_KERNEL);
 	if (err < 0)
 		return err;
 
@@ -453,9 +454,6 @@ mt76x2u_mcu_fw_send_data(struct mt76x2_dev *dev, const void *data,
 		pos += len;
 		usleep_range(5000, 10000);
 	}
-
-	/* we need to reset original buffer size */
-	buf.len = max_payload;
 	mt76_usb_buf_free(&buf);
 
 	return err;
