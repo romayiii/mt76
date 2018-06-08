@@ -43,6 +43,34 @@ mt76x2u_check_skb_rooms(struct mt76x2_dev *dev, struct sk_buff *skb)
 	return skb_cow(skb, need_head);
 }
 
+int mt76x2u_skb_dma_info(struct sk_buff *skb, enum dma_msg_port port,
+			 u32 flags)
+{
+	struct sk_buff *iter, *last = skb;
+	u32 info, pad;
+
+	/* Buffer layout:
+	 *	|   4B   | xfer len |      pad       |  4B  |
+	 *	| TXINFO | pkt/cmd  | zero pad to 4B | zero |
+	 *
+	 * length field of TXINFO should be set to 'xfer len'.
+	 */
+	info = FIELD_PREP(MT_TXD_INFO_LEN, round_up(skb->len, 4)) |
+	       FIELD_PREP(MT_TXD_INFO_DPORT, port) | flags;
+	put_unaligned_le32(info, skb_push(skb, sizeof(info)));
+
+	pad = round_up(skb->len, 4) + 4 - skb->len;
+	skb_walk_frags(skb, iter) {
+		last = iter;
+		if (!iter->next) {
+			skb->data_len += pad;
+			skb->len += pad;
+			break;
+		}
+	}
+	return mt76x2u_add_pad(last, pad);
+}
+
 static int
 mt76x2u_set_txinfo(struct mt76x2_dev *dev, struct sk_buff *skb,
 		   struct mt76_wcid *wcid, u8 ep)
@@ -62,7 +90,7 @@ mt76x2u_set_txinfo(struct mt76x2_dev *dev, struct sk_buff *skb,
 	if (!wcid || wcid->hw_key_idx == 0xff || wcid->sw_iv)
 		flags |= MT_TXD_INFO_WIV;
 
-	return mt76x2u_dma_skb_info(skb, WLAN_PORT, flags);
+	return mt76x2u_skb_dma_info(skb, WLAN_PORT, flags);
 }
 
 static void

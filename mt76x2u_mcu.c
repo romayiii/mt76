@@ -112,7 +112,7 @@ static int mt76x2u_mcu_send_msg(struct mt76x2_dev *dev, struct sk_buff *skb,
 	info = FIELD_PREP(MT_MCU_MSG_CMD_SEQ, seq) |
 	       FIELD_PREP(MT_MCU_MSG_CMD_TYPE, cmd) |
 	       MT_MCU_MSG_TYPE_CMD;
-	ret = mt76x2u_dma_skb_info(skb, CPU_TX_PORT, info);
+	ret = mt76x2u_skb_dma_info(skb, CPU_TX_PORT, info);
 	if (ret)
 		goto out;
 

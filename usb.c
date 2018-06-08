@@ -472,6 +472,24 @@ static void mt76_usb_complete_tx(struct urb *urb)
 	tasklet_schedule(&dev->usb.tx_tasklet);
 }
 
+static int
+mt76_usb_tx_build_sg(struct sk_buff *skb, struct urb *urb)
+{
+	int nsgs = 1 + skb_shinfo(skb)->nr_frags;
+	struct sk_buff *iter;
+
+	skb_walk_frags(skb, iter)
+		nsgs += 1 + skb_shinfo(iter)->nr_frags;
+
+	memset(urb->sg, 0, sizeof(*urb->sg) * MT_SG_MAX_SIZE);
+
+	nsgs = min_t(int, MT_SG_MAX_SIZE, nsgs);
+	sg_init_marker(urb->sg, nsgs);
+	urb->num_sgs = nsgs;
+
+	return skb_to_sgvec_nomark(skb, urb->sg, 0, skb->len);
+}
+
 static int mt76_usb_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 				 struct sk_buff *skb, struct mt76_wcid *wcid,
 				 struct ieee80211_sta *sta)
@@ -494,13 +512,18 @@ static int mt76_usb_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 	buf = &q->entry[idx].ubuf;
 	buf->done = false;
 
+	err = mt76_usb_tx_build_sg(skb, buf->urb);
+	if (err < 0)
+		return err;
+
+	pipe = usb_sndbulkpipe(udev, dev->usb.out_ep[ep]);
+	usb_fill_bulk_urb(buf->urb, udev, pipe, NULL, skb->len,
+			  mt76_usb_complete_tx, buf);
+
 	q->tail = (q->tail + 1) % q->ndesc;
 	q->entry[idx].skb = skb;
 	q->queued++;
 
-	pipe = usb_sndbulkpipe(udev, dev->usb.out_ep[ep]);
-	usb_fill_bulk_urb(buf->urb, udev, pipe, skb->data, skb->len,
-			  mt76_usb_complete_tx, buf);
 	return idx;
 }
 
@@ -528,8 +551,10 @@ int mt76_usb_alloc_tx(struct mt76_dev *dev)
 {
 	struct mt76_usb_buf *buf;
 	struct mt76_queue *q;
+	size_t size;
 	int i, j;
 
+	size = MT_SG_MAX_SIZE * sizeof(struct scatterlist);
 	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 		q = &dev->q_tx[i];
 		spin_lock_init(&q->lock);
@@ -549,6 +574,10 @@ int mt76_usb_alloc_tx(struct mt76_dev *dev)
 
 			buf->urb = usb_alloc_urb(0, GFP_KERNEL);
 			if (!buf->urb)
+				return -ENOMEM;
+
+			buf->urb->sg = devm_kzalloc(dev->dev, size, GFP_KERNEL);
+			if (!buf->urb->sg)
 				return -ENOMEM;
 		}
 	}

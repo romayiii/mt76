@@ -592,8 +592,6 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	dev->mt76.led_cdev.blink_set = mt76x2_led_set_blink;
 
 	ieee80211_hw_set(hw, SUPPORTS_AMSDU_IN_AMPDU);
-	ieee80211_hw_set(hw, TX_AMSDU);
-	ieee80211_hw_set(hw, TX_FRAG_LIST);
 
 	ret = mt76_register_device(&dev->mt76, true, mt76x2_rates,
 				   ARRAY_SIZE(mt76x2_rates));

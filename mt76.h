@@ -283,6 +283,7 @@ enum mt76_usb_out_ep {
 	__MT_EP_OUT_MAX,
 };
 
+#define MT_SG_MAX_SIZE		8
 #define MT_URB_SIZE		2048
 #define MT_NUM_TX_ENTRIES	256
 #define MT_NUM_RX_ENTRIES	256
@@ -544,6 +545,16 @@ static inline u8 q2ep(u8 qid)
 {
 	/* TODO: take management packets to queue 5 */
 	return qid + 1;
+}
+
+static inline bool mt76_usb_check_sg(struct mt76_dev *dev)
+{
+	struct usb_interface *intf = to_usb_interface(dev->dev);
+	struct usb_device *udev = interface_to_usbdev(intf);
+
+	return (udev->bus->sg_tablesize > 0 &&
+		(udev->bus->no_sg_constraint ||
+		 udev->speed == USB_SPEED_WIRELESS));
 }
 
 int mt76_usb_vendor_request(struct mt76_dev *dev, u8 req,
