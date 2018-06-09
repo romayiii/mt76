@@ -451,6 +451,7 @@ int mt76_usb_submit_rx_buffers(struct mt76_dev *dev)
 			break;
 	}
 	q->head = q->tail = 0;
+	q->queued = 0;
 	spin_unlock_irqrestore(&q->lock, flags);
 
 	return err;
