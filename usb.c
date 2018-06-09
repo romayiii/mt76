@@ -15,7 +15,7 @@
  */
 
 #include "mt76.h"
-#include "trace.h"
+#include "usb_trace.h"
 #include "dma.h"
 
 #define MT_VEND_REQ_MAX_RETRY	10
@@ -60,7 +60,7 @@ int mt76_usb_vendor_request(struct mt76_dev *dev, u8 req,
 	mutex_lock(&dev->usb.usb_ctrl_mtx);
 	ret = __mt76_usb_vendor_request(dev, req, req_type,
 					val, offset, buf, len);
-	trace_reg_wr(dev, offset, val);
+	trace_usb_reg_wr(dev, offset, val);
 	mutex_unlock(&dev->usb.usb_ctrl_mtx);
 
 	return ret;
@@ -94,7 +94,7 @@ static u32 __mt76_usb_rr(struct mt76_dev *dev, u32 addr)
 					0, offset, usb->data, sizeof(__le32));
 	if (ret == sizeof(__le32))
 		data = get_unaligned_le32(usb->data);
-	trace_reg_rr(dev, addr, data);
+	trace_usb_reg_rr(dev, addr, data);
 
 	return data;
 }
@@ -131,7 +131,7 @@ static void __mt76_usb_wr(struct mt76_dev *dev, u32 addr, u32 val)
 	__mt76_usb_vendor_request(dev, req,
 				  USB_DIR_OUT | USB_TYPE_VENDOR, 0,
 				  offset, usb->data, sizeof(__le32));
-	trace_reg_wr(dev, addr, val);
+	trace_usb_reg_wr(dev, addr, val);
 }
 
 static void mt76_usb_wr(struct mt76_dev *dev, u32 addr, u32 val)
