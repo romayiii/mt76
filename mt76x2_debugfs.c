@@ -152,4 +152,22 @@ void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 				    read_txpower);
 
 	debugfs_create_devm_seqfile(dev->mt76.dev, "agc", dir, read_agc);
+	debugfs_create_u8("loss_rate", S_IRUSR | S_IWUSR, dir,
+			  &dev->dfs_pd.sim_data.loss_rate);
+	debugfs_create_u16("ts_noise", S_IRUSR | S_IWUSR, dir,
+			  &dev->dfs_pd.sim_data.ts_noise);
+	debugfs_create_u8("min_pulses", S_IRUSR | S_IWUSR, dir,
+			  &dev->dfs_pd.sim_data.min_pulses);
+	debugfs_create_u8("max_pulses", S_IRUSR | S_IWUSR, dir,
+			  &dev->dfs_pd.sim_data.max_pulses);
+	debugfs_create_u8("num_pri", S_IRUSR | S_IWUSR, dir,
+			  &dev->dfs_pd.sim_data.num_pri);
+	debugfs_create_u32("min_pri", S_IRUSR | S_IWUSR, dir,
+			  &dev->dfs_pd.sim_data.min_pri);
+	debugfs_create_u32("max_pri", S_IRUSR | S_IWUSR, dir,
+			  &dev->dfs_pd.sim_data.max_pri);
+	debugfs_create_bool("sim_enable", S_IRUSR | S_IWUSR, dir,
+			    &dev->dfs_pd.sim_data.enable);
+	debugfs_create_bool("reset_dfs_stats", S_IRUSR | S_IWUSR, dir,
+			    &dev->dfs_pd.reset_stats);
 }

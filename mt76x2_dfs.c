@@ -232,6 +232,7 @@ static void mt76x2_dfs_detector_reset(struct mt76x2_dev *dev)
 		list_del_init(&seq->head);
 		mt76x2_dfs_seq_pool_put(dev, seq);
 	}
+	memset(&dfs_pd->sim_data, 0, sizeof(struct mt76x2_dfs_pattern_sim_data));
 }
 
 static bool mt76x2_dfs_check_chirp(struct mt76x2_dev *dev)
@@ -398,6 +399,67 @@ static bool mt76x2_dfs_fetch_event(struct mt76x2_dev *dev,
 	return true;
 }
 
+static void mt76x2_dfs_create_sim_event_seq(struct mt76x2_dev *dev)
+{
+	struct mt76x2_dfs_pattern_detector *dfs_pd = &dev->dfs_pd;
+	struct mt76x2_dfs_pattern_sim_data *sim = &dfs_pd->sim_data;
+	u32 delta_pulses = sim->max_pulses - sim->min_pulses;
+	u32 delta_pri = sim->max_pri - sim->min_pri;
+	u32 ts, i = 0, n, j = 0, pri[sim->num_pri], num_pulses;
+	u8 loss_rate = sim->loss_rate % 100;
+
+	get_random_bytes(pri, sizeof(pri));
+	for (n = 0; n < ARRAY_SIZE(pri); n++) {
+		if (delta_pri > 0)
+			pri[n] = (pri[n] % delta_pri) + sim->min_pri;
+		else
+			pri[n] = sim->min_pri;
+		printk("%s: pri[%d]=%d\n", __func__, n, pri[n]);
+		pri[n] *= 20; /* 50 ns unit */
+	}
+
+	get_random_bytes(&num_pulses, sizeof(u32));
+	if (delta_pulses > 0)
+		num_pulses = (num_pulses % delta_pulses) + sim->min_pulses;
+	else
+		num_pulses = sim->min_pulses;
+	num_pulses = min_t(u32, num_pulses, 64);
+	printk("%s: num_pulses=%d\n", __func__, num_pulses);
+
+	memset(sim->events, 0, sizeof(sim->events));
+	for (n = 0; n < num_pulses; n++) {
+		u16 ts_noise = 0;
+		u8 loss;
+
+		if (sim->ts_noise > 0) {
+			get_random_bytes(&ts_noise, sizeof(u16));
+			ts_noise %= sim->ts_noise;
+		}
+
+		if (i > 0) {
+			ts += (pri[j % sim->num_pri] + ts_noise);
+		} else {
+			ts = (pri[0] + ts_noise);
+			dfs_pd->last_event_ts = ts;
+		}
+		j++;
+
+		get_random_bytes(&loss, sizeof(u8));
+		loss %= 100;
+		if (loss < loss_rate) {
+			printk("%s: skip ts=%d [loss=%d]\n", __func__, ts, loss);
+			continue;
+		}
+
+		sim->events[i].ts = ts;
+		sim->events[i].engine = 2;
+		sim->events[i].width = 100;
+		printk("%s: event[%d].ts=%d\n", __func__, i,
+		       sim->events[i].ts);
+		i++;
+	}
+}
+
 static bool mt76x2_dfs_check_event(struct mt76x2_dev *dev,
 				   struct mt76x2_dfs_event *event)
 {
@@ -514,6 +576,7 @@ static int mt76x2_dfs_create_sequence(struct mt76x2_dev *dev,
 			return -ENOMEM;
 
 		*seq_p = seq;
+		seq_p->id = dfs_pd->seq_stats.seq_len;
 		INIT_LIST_HEAD(&seq_p->head);
 		list_add(&seq_p->head, &dfs_pd->sequences);
 next:
@@ -580,8 +643,13 @@ static void mt76x2_dfs_add_events(struct mt76x2_dev *dev)
 	/* disable debug mode */
 	mt76x2_dfs_set_capture_mode_ctrl(dev, false);
 	for (i = 0; i < MT_DFS_EVENT_LOOP; i++) {
-		if (!mt76x2_dfs_fetch_event(dev, &event))
+		if (dfs_pd->sim_data.enable) {
+			event = dfs_pd->sim_data.events[i];
+			if (!event.ts)
+				break;
+		} else if (!mt76x2_dfs_fetch_event(dev, &event)) {
 			break;
+		}
 
 		if (dfs_pd->last_event_ts > event.ts)
 			mt76x2_dfs_detector_reset(dev);
@@ -637,16 +705,26 @@ static void mt76x2_dfs_tasklet(unsigned long arg)
 
 		dfs_pd->last_sw_check = jiffies;
 
+		if (unlikely(dfs_pd->sim_data.enable))
+			mt76x2_dfs_create_sim_event_seq(dev);
+
 		mt76x2_dfs_add_events(dev);
+		dfs_pd->sim_data.enable = false;
 		radar_detected = mt76x2_dfs_check_detection(dev);
 		if (radar_detected) {
 			/* sw detector rx radar pattern */
-			ieee80211_radar_detected(dev->mt76.hw);
+			//ieee80211_radar_detected(dev->mt76.hw);
 			mt76x2_dfs_detector_reset(dev);
+			mt76x2_irq_enable(dev, MT_INT_GPTIMER);
 
 			return;
 		}
 		mt76x2_dfs_check_event_window(dev);
+	}
+
+	if (dfs_pd->reset_stats) {
+		memset(dfs_pd->stats, 0, sizeof(dfs_pd->stats));
+		dfs_pd->reset_stats = false;
 	}
 
 	engine_mask = mt76_rr(dev, MT_BBP(DFS, 1));

@@ -86,6 +86,7 @@ struct mt76x2_dfs_sequence {
 	u32 pri;
 	u16 count;
 	u8 engine;
+	u16 id;
 };
 
 struct mt76x2_dfs_hw_pulse {
@@ -113,6 +114,19 @@ struct mt76x2_dfs_seq_stats {
 	u32 seq_len;
 };
 
+struct mt76x2_dfs_pattern_sim_data {
+	bool enable;
+	u8 min_pulses;
+	u8 max_pulses;
+	u8 num_pri;
+	u32 min_pri;
+	u32 max_pri;
+	u16 ts_noise;
+	u8 loss_rate;
+
+	struct mt76x2_dfs_event events[64];
+};
+
 struct mt76x2_dfs_pattern_detector {
 	enum nl80211_dfs_regions region;
 
@@ -131,6 +145,9 @@ struct mt76x2_dfs_pattern_detector {
 
 	struct mt76x2_dfs_engine_stats stats[MT_DFS_NUM_ENGINES];
 	struct tasklet_struct dfs_tasklet;
+
+	struct mt76x2_dfs_pattern_sim_data sim_data;
+	bool reset_stats;
 };
 
 void mt76x2_dfs_init_params(struct mt76x2_dev *dev);
