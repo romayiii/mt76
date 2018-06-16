@@ -303,6 +303,7 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb,
 			  void *rxi)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *) skb->cb;
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct mt76x2_rxwi *rxwi = rxi;
 	u32 rxinfo = le32_to_cpu(rxwi->rxinfo);
 	u32 ctl = le32_to_cpu(rxwi->ctl);
@@ -374,7 +375,9 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb,
 	status->tid = FIELD_GET(MT_RXWI_TID, tid_sn);
 	status->seqno = FIELD_GET(MT_RXWI_SN, tid_sn);
 
-	if (unicast) {
+	if (unicast ||
+	    (ieee80211_is_beacon(hdr->frame_control) &&
+	     status->wcid)) {
 		ewma_signal_add(&dev->cal.rssi, status->signal);
 		dev->cal.rssi_count++;
 	}
