@@ -115,21 +115,9 @@ mt76x2u_phy_tssi_compensate(struct mt76x2_dev *dev)
 static void
 mt76x2u_phy_update_channel_gain(struct mt76x2_dev *dev)
 {
-	u32 false_cca, val = mt76_rr(dev, MT_BBP(AGC, 20));
-	int rssi0 = (s8)FIELD_GET(MT_BBP_AGC20_RSSI0, val);
-	int rssi1 = (s8)FIELD_GET(MT_BBP_AGC20_RSSI1, val);
 	u8 channel = dev->mt76.chandef.chan->hw_value;
 	int freq, freq1;
-
-	false_cca = FIELD_GET(MT_RX_STAT_1_CCA_ERRORS,
-			      mt76_rr(dev, MT_RX_STAT_1));
-
-	dev->cal.avg_rssi[0] = (dev->cal.avg_rssi[0] * 15) / 16 +
-			       (rssi0 << 8) / 16;
-	dev->cal.avg_rssi[1] = (dev->cal.avg_rssi[1] * 15) / 16 +
-			       (rssi1 << 8) / 16;
-	dev->cal.avg_rssi_all = (dev->cal.avg_rssi[0] +
-				 dev->cal.avg_rssi[1]) / 512;
+	u32 false_cca;
 
 	freq = dev->mt76.chandef.chan->center_freq;
 	freq1 = dev->mt76.chandef.center_freq1;
@@ -153,6 +141,17 @@ mt76x2u_phy_update_channel_gain(struct mt76x2_dev *dev)
 	default:
 		break;
 	}
+
+	false_cca = FIELD_GET(MT_RX_STAT_1_CCA_ERRORS,
+			      mt76_rr(dev, MT_RX_STAT_1));
+
+	spin_lock_bh(&dev->mt76.rx_lock);
+	dev->cal.avg_rssi_all = ewma_signal_read(&dev->cal.rssi);
+	if (!dev->cal.rssi_count)
+		dev->cal.avg_rssi_all = -75;
+	else
+		dev->cal.rssi_count = 0;
+	spin_unlock_bh(&dev->mt76.rx_lock);
 
 	mt76x2u_mcu_set_dynamic_vga(dev, channel, false, false,
 				    dev->cal.avg_rssi_all, false_cca);

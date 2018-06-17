@@ -154,6 +154,7 @@ struct mt76x2_dev *mt76x2u_alloc_device(struct device *pdev)
 
 	mutex_init(&dev->mcu.mutex);
 	mutex_init(&dev->mutex);
+	ewma_signal_init(&dev->cal.rssi);
 
 	return dev;
 }

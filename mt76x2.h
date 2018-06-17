@@ -27,6 +27,7 @@
 #include <linux/mutex.h>
 #include <linux/bitops.h>
 #include <linux/kfifo.h>
+#include <linux/average.h>
 
 #define MT7662_FIRMWARE		"mt7662.bin"
 #define MT7662_ROM_PATCH	"mt7662_rom_patch.bin"
@@ -50,6 +51,8 @@
 #include "mt76x2_mac.h"
 #include "mt76x2_dfs.h"
 
+DECLARE_EWMA(signal, 10, 8)
+
 struct mt76x2_mcu {
 	struct mutex mutex;
 
@@ -70,13 +73,14 @@ struct mt76x2_rx_freq_cal {
 struct mt76x2_calibration {
 	struct mt76x2_rx_freq_cal rx;
 
+	struct ewma_signal rssi;
+	u32 rssi_count;
+
 	u8 agc_gain_init[MT_MAX_CHAINS];
 	u8 agc_gain_cur[MT_MAX_CHAINS];
 
-	int avg_rssi[MT_MAX_CHAINS];
-	int avg_rssi_all;
-
 	u16 false_cca;
+	s8 avg_rssi_all;
 	s8 agc_gain_adjust;
 	s8 low_gain;
 
