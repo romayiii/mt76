@@ -144,14 +144,7 @@ mt76x2u_phy_update_channel_gain(struct mt76x2_dev *dev)
 
 	false_cca = FIELD_GET(MT_RX_STAT_1_CCA_ERRORS,
 			      mt76_rr(dev, MT_RX_STAT_1));
-
-	spin_lock_bh(&dev->mt76.rx_lock);
-	dev->cal.avg_rssi_all = ewma_signal_read(&dev->cal.rssi);
-	if (!dev->cal.rssi_count)
-		dev->cal.avg_rssi_all = -75;
-	else
-		dev->cal.rssi_count = 0;
-	spin_unlock_bh(&dev->mt76.rx_lock);
+	dev->cal.avg_rssi_all = mt76x2_phy_get_min_avg_rssi(dev);
 
 	mt76x2u_mcu_set_dynamic_vga(dev, channel, false, false,
 				    dev->cal.avg_rssi_all, false_cca);

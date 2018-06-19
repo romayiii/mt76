@@ -217,17 +217,9 @@ mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 	u8 low_gain_delta, gain_delta;
 	bool gain_change;
 	int low_gain;
-	u32 rssi_count;
 	u32 val;
 
-	spin_lock_bh(&dev->mt76.rx_lock);
-	dev->cal.avg_rssi_all = ewma_signal_read(&dev->cal.rssi);
-	rssi_count = dev->cal.rssi_count;
-	dev->cal.rssi_count = 0;
-	spin_unlock_bh(&dev->mt76.rx_lock);
-
-	if (!rssi_count)
-		dev->cal.avg_rssi_all = -75;
+	dev->cal.avg_rssi_all = mt76x2_phy_get_min_avg_rssi(dev);
 
 	low_gain = (dev->cal.avg_rssi_all > mt76x2_get_rssi_gain_thresh(dev)) +
 		   (dev->cal.avg_rssi_all > mt76x2_get_low_rssi_gain_thresh(dev));

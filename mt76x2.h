@@ -73,9 +73,6 @@ struct mt76x2_rx_freq_cal {
 struct mt76x2_calibration {
 	struct mt76x2_rx_freq_cal rx;
 
-	struct ewma_signal rssi;
-	u32 rssi_count;
-
 	u8 agc_gain_init[MT_MAX_CHAINS];
 	u8 agc_gain_cur[MT_MAX_CHAINS];
 
@@ -162,6 +159,9 @@ struct mt76x2_sta {
 	struct mt76x2_vif *vif;
 	struct mt76x2_tx_status status;
 	int n_frames;
+
+	struct ewma_signal rssi;
+	int inactive_count;
 };
 
 static inline bool mt76x2_wait_for_mac(struct mt76x2_dev *dev)
@@ -325,5 +325,6 @@ void mt76x2_configure_tx_delay(struct mt76x2_dev *dev,
 void mt76x2_phy_set_bw(struct mt76x2_dev *dev, int width, u8 ctrl);
 void mt76x2_phy_set_band(struct mt76x2_dev *dev, int band, bool primary_upper);
 void mt76x2_apply_gain_adj(struct mt76x2_dev *dev);
+int mt76x2_phy_get_min_avg_rssi(struct mt76x2_dev *dev);
 
 #endif
