@@ -56,7 +56,7 @@ DECLARE_EWMA(signal, 10, 8)
 struct mt76x2_mcu {
 	struct mutex mutex;
 
-	struct completion resp_cmpl;
+	wait_queue_head_t wait;
 	struct sk_buff_head res_q;
 	struct mt76u_buf res_u;
 

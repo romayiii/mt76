@@ -335,7 +335,7 @@ void mt76x2_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 
 	if (q == MT_RXQ_MCU) {
 		skb_queue_tail(&dev->mcu.res_q, skb);
-		complete(&dev->mcu.resp_cmpl);
+		wake_up(&dev->mcu.wait);
 		return;
 	}
 

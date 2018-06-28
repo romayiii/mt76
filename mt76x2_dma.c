@@ -118,7 +118,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 
 	mt76_dma_attach(&dev->mt76);
 
-	init_completion(&dev->mcu.resp_cmpl);
+	init_waitqueue_head(&dev->mcu.wait);
 	skb_queue_head_init(&dev->mcu.res_q);
 
 	tasklet_init(&dev->tx_tasklet, mt76x2_tx_tasklet, (unsigned long) dev);
