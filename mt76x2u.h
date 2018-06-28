@@ -81,14 +81,4 @@ void mt76x2u_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 int mt76x2u_skb_dma_info(struct sk_buff *skb, enum dma_msg_port port,
 			 u32 flags);
 
-static inline int mt76x2u_add_pad(struct sk_buff *skb, unsigned int pad)
-{
-	if (unlikely(pad)) {
-		if (__skb_pad(skb, pad, true))
-			return -ENOMEM;
-		__skb_put(skb, pad);
-	}
-	return 0;
-}
-
 #endif /* __MT76x2U_H */

@@ -299,6 +299,13 @@ struct mt76_usb {
 	u16 out_max_packet;
 	u8 in_ep[__MT_EP_IN_MAX];
 	u16 in_max_packet;
+
+	struct mt76u_mcu {
+		struct mutex mutex;
+		struct completion cmpl;
+		struct mt76u_buf res;
+		u32 msg_seq;
+	} mcu;
 };
 
 struct mt76_dev {
@@ -563,6 +570,8 @@ int mt76u_vendor_request(struct mt76_dev *dev, u8 req,
 			 void *buf, size_t len);
 void mt76u_single_wr(struct mt76_dev *dev, const u8 req,
 		     const u16 offset, const u32 val);
+u32 mt76u_rr(struct mt76_dev *dev, u32 addr);
+void mt76u_wr(struct mt76_dev *dev, u32 addr, u32 val);
 int mt76u_init(struct mt76_dev *dev, struct usb_interface *intf);
 void mt76u_deinit(struct mt76_dev *dev);
 int mt76u_buf_alloc(struct mt76_dev *dev, struct mt76u_buf *buf,
@@ -575,6 +584,14 @@ int mt76u_submit_rx_buffers(struct mt76_dev *dev);
 int mt76u_alloc_queues(struct mt76_dev *dev);
 void mt76u_stop_queues(struct mt76_dev *dev);
 void mt76u_queues_deinit(struct mt76_dev *dev);
+int mt76u_skb_dma_info(struct sk_buff *skb, int port, u32 flags);
+
+int mt76u_mcu_fw_send_data(struct mt76_dev *dev, const void *data,
+			   int data_len, u32 max_payload, u32 offset);
+void mt76u_mcu_complete_urb(struct urb *urb);
+struct sk_buff *mt76u_mcu_msg_alloc(const void *data, int len);
+int mt76u_mcu_send_msg(struct mt76_dev *dev, struct sk_buff *skb,
+		       int cmd, bool wait_resp);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,17,0)
 /**

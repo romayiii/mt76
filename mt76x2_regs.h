@@ -156,9 +156,6 @@
 #define MT_WMM_TXOP_SHIFT(_n)		((_n & 1) * 16)
 #define MT_WMM_TXOP_MASK		GENMASK(15, 0)
 
-#define MT_FCE_DMA_ADDR			0x0230
-#define MT_FCE_DMA_LEN			0x0234
-
 #define MT_TSO_CTRL			0x0250
 #define MT_HEADER_TRANS_CTRL_REG	0x0260
 
@@ -227,8 +224,6 @@
 #define MT_TX_CPU_FROM_FCE_MAX_COUNT	0x09a4
 #define MT_FCE_PDMA_GLOBAL_CONF		0x09c4
 #define MT_FCE_SKIP_FS			0x0a6c
-
-#define MT_TX_CPU_FROM_FCE_CPU_DESC_IDX	0x09a8
 
 #define MT_PAUSE_ENABLE_CONTROL1	0x0a38
 

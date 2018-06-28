@@ -151,9 +151,6 @@ struct mt76x2_dev *mt76x2u_alloc_device(struct device *pdev)
 	mdev->dev = pdev;
 	mdev->drv = &drv_ops;
 
-	init_completion(&dev->mcu.resp_cmpl);
-
-	mutex_init(&dev->mcu.mutex);
 	mutex_init(&dev->mutex);
 
 	return dev;
