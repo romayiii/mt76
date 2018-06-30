@@ -608,7 +608,7 @@ static void mt76u_tx_status_data(struct work_struct *work)
 		count++;
 	}
 
-	if (count)
+	if (count && test_bit(MT76_STATE_RUNNING, &dev->state))
 		ieee80211_queue_delayed_work(dev->hw, &usb->stat_work,
 					     msecs_to_jiffies(10));
 	else
@@ -773,6 +773,13 @@ void mt76u_stop_queues(struct mt76_dev *dev)
 	mt76u_stop_tx(dev);
 }
 EXPORT_SYMBOL_GPL(mt76u_stop_queues);
+
+void mt76u_stop_stat_wk(struct mt76_dev *dev)
+{
+	cancel_delayed_work_sync(&dev->usb.stat_work);
+	clear_bit(MT76_READING_STATS, &dev->state);
+}
+EXPORT_SYMBOL_GPL(mt76u_stop_stat_wk);
 
 void mt76u_queues_deinit(struct mt76_dev *dev)
 {

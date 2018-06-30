@@ -583,6 +583,7 @@ int mt76u_submit_buf(struct mt76_dev *dev, int dir, int index,
 int mt76u_submit_rx_buffers(struct mt76_dev *dev);
 int mt76u_alloc_queues(struct mt76_dev *dev);
 void mt76u_stop_queues(struct mt76_dev *dev);
+void mt76u_stop_stat_wk(struct mt76_dev *dev);
 void mt76u_queues_deinit(struct mt76_dev *dev);
 int mt76u_skb_dma_info(struct sk_buff *skb, int port, u32 flags);
 

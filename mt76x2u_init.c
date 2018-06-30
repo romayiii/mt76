@@ -304,9 +304,7 @@ fail:
 
 void mt76x2u_stop_hw(struct mt76x2_dev *dev)
 {
-	struct mt76_usb *usb = &dev->mt76.usb;
-
-	cancel_delayed_work_sync(&usb->stat_work);
+	mt76u_stop_stat_wk(&dev->mt76);
 	cancel_delayed_work_sync(&dev->cal_work);
 	mt76x2u_mac_stop(dev);
 }
