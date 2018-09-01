@@ -84,7 +84,13 @@ mt76x2_write_reg_pairs(struct mt76x2_dev *dev,
 static void
 mt76_write_mac_initvals(struct mt76x2_dev *dev)
 {
-#define DEFAULT_PROT_CFG				\
+#define DEFAULT_PROT_CFG_CCK				\
+	(FIELD_PREP(MT_PROT_CFG_RATE, 0x3) |		\
+	 FIELD_PREP(MT_PROT_CFG_NAV, 1) |		\
+	 FIELD_PREP(MT_PROT_CFG_TXOP_ALLOW, 0x3f) |	\
+	 MT_PROT_CFG_RTS_THRESH)
+
+#define DEFAULT_PROT_CFG_OFDM				\
 	(FIELD_PREP(MT_PROT_CFG_RATE, 0x2004) |		\
 	 FIELD_PREP(MT_PROT_CFG_NAV, 1) |			\
 	 FIELD_PREP(MT_PROT_CFG_TXOP_ALLOW, 0x3f) |	\
@@ -159,8 +165,8 @@ mt76_write_mac_initvals(struct mt76x2_dev *dev)
 		{ MT_HT_CTRL_CFG,		0x000001ff },
 	};
 	struct mt76x2_reg_pair prot_vals[] = {
-		{ MT_CCK_PROT_CFG,		DEFAULT_PROT_CFG },
-		{ MT_OFDM_PROT_CFG,		DEFAULT_PROT_CFG },
+		{ MT_CCK_PROT_CFG,		DEFAULT_PROT_CFG_CCK },
+		{ MT_OFDM_PROT_CFG,		DEFAULT_PROT_CFG_OFDM },
 		{ MT_MM20_PROT_CFG,		DEFAULT_PROT_CFG_20 },
 		{ MT_MM40_PROT_CFG,		DEFAULT_PROT_CFG_40 },
 		{ MT_GF20_PROT_CFG,		DEFAULT_PROT_CFG_20 },
@@ -505,7 +511,7 @@ void mt76x2_set_tx_ackto(struct mt76x2_dev *dev)
 		       MT_TX_TIMEOUT_CFG_ACKTO, ackto);
 }
 
-static void
+void
 mt76x2_set_wlan_state(struct mt76x2_dev *dev, bool enable)
 {
 	u32 val = mt76_rr(dev, MT_WLAN_FUN_CTRL);

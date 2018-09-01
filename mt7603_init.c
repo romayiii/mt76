@@ -28,6 +28,7 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 		.rx_skb = mt7603_queue_rx_skb,
 		.rx_poll_complete = mt7603_rx_poll_complete,
 		.sta_ps = mt7603_sta_ps,
+		.update_survey = mt7603_update_channel,
 	};
 	struct mt7603_dev *dev;
 	struct mt76_dev *mdev;
@@ -178,7 +179,7 @@ mt7603_mac_init(struct mt7603_dev *dev)
 		FIELD_PREP(MT_AGG_LIMIT_AC(3), 21));
 
 	mt76_wr(dev, MT_AGG_CONTROL,
-		FIELD_PREP(MT_AGG_CONTROL_BAR_RATE, 0x80) |
+		FIELD_PREP(MT_AGG_CONTROL_BAR_RATE, 0x4b) |
 		FIELD_PREP(MT_AGG_CONTROL_CFEND_RATE, 0x69) |
 		MT_AGG_CONTROL_NO_BA_AR_RULE);
 
@@ -211,6 +212,10 @@ mt7603_mac_init(struct mt7603_dev *dev)
 
 	mt76_rmw_field(dev, MT_AGG_PCR_RTS, MT_AGG_PCR_RTS_PKT_THR, 3);
 	mt76_set(dev, MT_TMAC_PCR, MT_TMAC_PCR_SPE_EN);
+
+	/* include preamble detection in CCA trigger signal */
+	mt76_rmw_field(dev, MT_TXREQ, MT_TXREQ_CCA_SRC_SEL, 2);
+
 	mt76_wr(dev, MT_RXREQ, 4);
 
 	/* Configure all rx packets to HIF */

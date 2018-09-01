@@ -180,6 +180,7 @@ extern const struct ieee80211_ops mt76x2_ops;
 
 struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev);
 int mt76x2_register_device(struct mt76x2_dev *dev);
+void mt76x2_set_wlan_state(struct mt76x2_dev *dev, bool enable);
 void mt76x2_init_debugfs(struct mt76x2_dev *dev);
 
 irqreturn_t mt76x2_irq_handler(int irq, void *dev_instance);
@@ -222,6 +223,7 @@ int mt76x2_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
 			  u32 *tx_info);
 void mt76x2_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			    struct mt76_queue_entry *e, bool flush);
+void mt76x2_mac_set_tx_protection(struct mt76x2_dev *dev, u32 val);
 
 void mt76x2_pre_tbtt_tasklet(unsigned long arg);
 
