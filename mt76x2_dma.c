@@ -25,6 +25,7 @@ mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 
 	q->regs = dev->mt76.mmio.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
 	q->ndesc = n_desc;
+	q->hw_idx = idx;
 
 	ret = mt76_queue_alloc(dev, q);
 	if (ret)
