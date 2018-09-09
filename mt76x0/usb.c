@@ -17,11 +17,12 @@
 #include <linux/usb.h>
 
 #include "mt76x0.h"
-#include "usb.h"
 #include "mcu.h"
 #include "trace.h"
 #include "../mt76x02_util.h"
 #include "../mt76x02_usb.h"
+
+#define MT7610_FIRMWARE			"mediatek/mt7610u.bin"
 
 static struct usb_device_id mt76x0_device_table[] = {
 	{ USB_DEVICE(0x148F, 0x7610) },	/* MT7610U */
