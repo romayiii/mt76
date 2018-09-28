@@ -174,10 +174,10 @@ static void mt76x0_init_mac_registers(struct mt76x0_dev *dev)
 	mt76_wr(dev, MT_WMM_CTRL, reg);
 
 	/* TODO: Probably not needed */
-	mt76_wr(dev, 0x7028, 0);
-	mt76_wr(dev, 0x7010, 0);
-	mt76_wr(dev, 0x7024, 0);
-	msleep(10);
+	mt76_wr(dev, MT_H2M_BBP_AGENT, 0);
+	mt76_wr(dev, MT_H2M_MAILBOX_CSR, 0);
+	mt76_wr(dev, MT_H2M_INT_SRC, 0);
+	usleep_range(10000, 20000);
 }
 
 static int mt76x0_init_wcid_mem(struct mt76x0_dev *dev)

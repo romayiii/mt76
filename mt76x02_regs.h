@@ -622,8 +622,11 @@
 
 #define MT_SRAM_BASE			0x4000
 
+#define MT_H2M_MAILBOX_CSR		0x7010
 #define MT_H2M_MAILBOX_CID		0x7014
 #define MT_H2M_MAILBOX_STATUS		0x701c
+#define MT_H2M_INT_SRC			0x7024
+#define MT_H2M_BBP_AGENT		0x7028
 
 #define MT_WCID_KEY_BASE		0x8000
 #define MT_WCID_KEY(_n)			(MT_WCID_KEY_BASE + (_n) * 32)
