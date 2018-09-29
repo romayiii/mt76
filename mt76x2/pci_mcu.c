@@ -28,7 +28,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 {
 	const struct firmware *fw = NULL;
 	struct mt76x02_patch_header *hdr;
-	bool rom_protect = !is_mt7612(dev);
+	bool rom_protect = !is_mt7612(&dev->mt76);
 	int len, ret = 0;
 	__le32 *cur;
 	u32 patch_mask, patch_reg;

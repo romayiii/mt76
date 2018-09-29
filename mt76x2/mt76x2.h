@@ -109,11 +109,6 @@ struct mt76x2_dev {
 	struct mt76x2_dfs_pattern_detector dfs_pd;
 };
 
-static inline bool is_mt7612(struct mt76x2_dev *dev)
-{
-	return mt76_chip(&dev->mt76) == 0x7612;
-}
-
 static inline bool mt76x2_channel_silent(struct mt76x2_dev *dev)
 {
 	struct ieee80211_channel *chan = dev->mt76.chandef.chan;

@@ -91,7 +91,7 @@ static void mt76x2u_mcu_reset_wmt(struct mt76x2_dev *dev)
 
 static int mt76x2u_mcu_load_rom_patch(struct mt76x2_dev *dev)
 {
-	bool rom_protect = !is_mt7612(dev);
+	bool rom_protect = !is_mt7612(&dev->mt76);
 	struct mt76x02_patch_header *hdr;
 	u32 val, patch_mask, patch_reg;
 	const struct firmware *fw;

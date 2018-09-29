@@ -108,7 +108,7 @@ static int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 		   MT_MAC_SYS_CTRL_RESET_CSR |
 		   MT_MAC_SYS_CTRL_RESET_BBP);
 
-	if (is_mt7612(dev))
+	if (is_mt7612(&dev->mt76))
 		mt76_clear(dev, MT_COEXCFG0, MT_COEXCFG0_COEX_EN);
 
 	mt76_set(dev, MT_EXT_CCA_CFG, 0x0000f000);
