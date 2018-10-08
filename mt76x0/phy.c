@@ -37,7 +37,7 @@ mt76x0_rf_csr_wr(struct mt76x02_dev *dev, u32 offset, u8 value)
 	bank = MT_RF_BANK(offset);
 	reg = MT_RF_REG(offset);
 
-	if (WARN_ON_ONCE(reg > 64) || WARN_ON_ONCE(bank) > 8)
+	if (WARN_ON_ONCE(reg > 127) || WARN_ON_ONCE(bank > 8))
 		return -EINVAL;
 
 	mutex_lock(&dev->phy_mutex);
@@ -76,7 +76,7 @@ static int mt76x0_rf_csr_rr(struct mt76x02_dev *dev, u32 offset)
 	bank = MT_RF_BANK(offset);
 	reg = MT_RF_REG(offset);
 
-	if (WARN_ON_ONCE(reg > 64) || WARN_ON_ONCE(bank) > 8)
+	if (WARN_ON_ONCE(reg > 127) || WARN_ON_ONCE(bank > 8))
 		return -EINVAL;
 
 	mutex_lock(&dev->phy_mutex);
@@ -111,15 +111,16 @@ out:
 static int
 rf_wr(struct mt76x02_dev *dev, u32 offset, u8 val)
 {
-	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mt76.state)) {
+	if (mt76_is_usb(dev)) {
 		struct mt76_reg_pair pair = {
 			.reg = offset,
 			.value = val,
 		};
 
+		WARN_ON_ONCE(!test_bit(MT76_STATE_MCU_RUNNING,
+			     &dev->mt76.state));
 		return mt76_wr_rp(dev, MT_MCU_MEMMAP_RF, &pair, 1);
 	} else {
-		WARN_ON_ONCE(1);
 		return mt76x0_rf_csr_wr(dev, offset, val);
 	}
 }
@@ -130,15 +131,16 @@ rf_rr(struct mt76x02_dev *dev, u32 offset)
 	int ret;
 	u32 val;
 
-	if (test_bit(MT76_STATE_MCU_RUNNING, &dev->mt76.state)) {
+	if (mt76_is_usb(dev)) {
 		struct mt76_reg_pair pair = {
 			.reg = offset,
 		};
 
+		WARN_ON_ONCE(!test_bit(MT76_STATE_MCU_RUNNING,
+			     &dev->mt76.state));
 		ret = mt76_rd_rp(dev, MT_MCU_MEMMAP_RF, &pair, 1);
 		val = pair.value;
 	} else {
-		WARN_ON_ONCE(1);
 		ret = val = mt76x0_rf_csr_rr(dev, offset);
 	}
 
@@ -175,9 +177,22 @@ rf_clear(struct mt76x02_dev *dev, u32 offset, u8 mask)
 }
 #endif
 
-#define RF_RANDOM_WRITE(dev, tab)		\
-	mt76_wr_rp(dev, MT_MCU_MEMMAP_RF,	\
-		   tab, ARRAY_SIZE(tab))
+static void
+mt76x0_rf_csr_wr_rp(struct mt76x02_dev *dev, const struct mt76_reg_pair *data,
+		    int n)
+{
+	while (n-- > 0) {
+		mt76x0_rf_csr_wr(dev, data->reg, data->value);
+		data++;
+	}
+}
+
+#define RF_RANDOM_WRITE(dev, tab) do {					\
+	if (mt76_is_mmio(dev))						\
+		mt76x0_rf_csr_wr_rp(dev, tab, ARRAY_SIZE(tab));		\
+	else								\
+		mt76_wr_rp(dev, MT_MCU_MEMMAP_RF, tab, ARRAY_SIZE(tab));\
+} while (0)
 
 int mt76x0_wait_bbp_ready(struct mt76x02_dev *dev)
 {
@@ -186,7 +201,6 @@ int mt76x0_wait_bbp_ready(struct mt76x02_dev *dev)
 
 	do {
 		val = mt76_rr(dev, MT_BBP(CORE, 0));
-		printk("BBP version %08x\n", val);
 		if (val && ~val)
 			break;
 	} while (--i);
@@ -196,6 +210,7 @@ int mt76x0_wait_bbp_ready(struct mt76x02_dev *dev)
 		return -EIO;
 	}
 
+	dev_dbg(dev->mt76.dev, "BBP version %08x\n", val);
 	return 0;
 }
 
@@ -475,7 +490,7 @@ mt76x0_phy_set_chan_rf_params(struct mt76x02_dev *dev, u8 channel, u16 rf_bw_ban
 	mt76_wr(dev, MT_RF_MISC, mac_reg);
 
 	band = (rf_band & RF_G_BAND) ? NL80211_BAND_2GHZ : NL80211_BAND_5GHZ;
-	if (mt76x02_ext_pa_enabled(&dev->mt76, band)) {
+	if (mt76x02_ext_pa_enabled(dev, band)) {
 		/*
 			MT_RF_MISC (offset: 0x0518)
 			[2]1'b1: enable external A band PA, 1'b0: disable external A band PA
@@ -587,7 +602,7 @@ mt76x0_bbp_set_bw(struct mt76x02_dev *dev, enum nl80211_chan_width width)
 		return ;
 	}
 
-	mt76x02_mcu_function_select(&dev->mt76, BW_SETTING, bw, false);
+	mt76x02_mcu_function_select(dev, BW_SETTING, bw, false);
 }
 
 void mt76x0_phy_set_txpower(struct mt76x02_dev *dev)
@@ -603,7 +618,7 @@ void mt76x0_phy_set_txpower(struct mt76x02_dev *dev)
 	dev->mt76.txpower_cur = mt76x02_get_max_rate_power(t);
 	mt76x02_add_rate_power_offset(t, -info[0]);
 
-	mt76x02_phy_set_txpower(&dev->mt76, info[0], info[1]);
+	mt76x02_phy_set_txpower(dev, info[0], info[1]);
 }
 
 int mt76x0_phy_set_channel(struct mt76x02_dev *dev,
@@ -697,7 +712,7 @@ int mt76x0_phy_set_channel(struct mt76x02_dev *dev,
 
 	mt76x0_vco_cal(dev, channel);
 	if (scan)
-		mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_RXDCOC, 1, false);
+		mt76x02_mcu_calibrate(dev, MCU_CAL_RXDCOC, 1, false);
 
 	mt76x0_phy_set_txpower(dev);
 
@@ -710,7 +725,7 @@ void mt76x0_phy_recalibrate_after_assoc(struct mt76x02_dev *dev)
 	u8 channel = dev->mt76.chandef.chan->hw_value;
 	int is_5ghz = (dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ) ? 1 : 0;
 
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_R, 0, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_R, 0, false);
 
 	mt76x0_vco_cal(dev, channel);
 
@@ -722,22 +737,20 @@ void mt76x0_phy_recalibrate_after_assoc(struct mt76x02_dev *dev)
 	reg_val &= 0xffffff7e;
 	mt76_wr(dev, 0x2124, reg_val);
 
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_RXDCOC, 0, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_RXDCOC, 0, false);
 
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_LC, is_5ghz, false);
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_LOFT, is_5ghz, false);
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_TXIQ, is_5ghz, false);
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_TX_GROUP_DELAY,
-			      is_5ghz, false);
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_RXIQ, is_5ghz, false);
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_RX_GROUP_DELAY,
-			      is_5ghz, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_LC, is_5ghz, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_LOFT, is_5ghz, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_TXIQ, is_5ghz, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_TX_GROUP_DELAY, is_5ghz, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_RXIQ, is_5ghz, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_RX_GROUP_DELAY, is_5ghz, false);
 
 	mt76_wr(dev, 0x2124, reg_val);
 	mt76_wr(dev, MT_TX_ALC_CFG_0, tx_alc);
 	msleep(100);
 
-	mt76x02_mcu_calibrate(&dev->mt76, MCU_CAL_RXDCOC, 1, false);
+	mt76x02_mcu_calibrate(dev, MCU_CAL_RXDCOC, 1, false);
 }
 
 void mt76x0_agc_save(struct mt76x02_dev *dev)
@@ -802,7 +815,7 @@ static void mt76x0_dynamic_vga_tuning(struct mt76x02_dev *dev)
 	int avg_rssi;
 
 	init_vga = chandef->chan->band == NL80211_BAND_5GHZ ? 0x54 : 0x4E;
-	avg_rssi = mt76x02_phy_get_min_avg_rssi(&dev->mt76);
+	avg_rssi = mt76x02_phy_get_min_avg_rssi(dev);
 	if (avg_rssi > -60)
 		init_vga -= 0x20;
 	else if (avg_rssi > -70)
@@ -884,6 +897,6 @@ void mt76x0_phy_init(struct mt76x02_dev *dev)
 	INIT_DELAYED_WORK(&dev->cal_work, mt76x0_phy_calibrate);
 
 	mt76x0_rf_init(dev);
-	mt76x02_phy_set_rxpath(&dev->mt76);
-	mt76x02_phy_set_txdac(&dev->mt76);
+	mt76x02_phy_set_rxpath(dev);
+	mt76x02_phy_set_txdac(dev);
 }
