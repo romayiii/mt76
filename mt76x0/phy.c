@@ -763,48 +763,41 @@ void mt76x0_agc_restore(struct mt76x02_dev *dev)
 	mt76_rmw_field(dev, MT_BBP(AGC, 8), MT_BBP_AGC_GAIN, dev->agc_save);
 }
 
-static void mt76x0_temp_sensor(struct mt76x02_dev *dev)
+static int mt76x0_temp_sensor(struct mt76x02_dev *dev, int *temp)
 {
 	u8 rf_b7_73, rf_b0_66, rf_b0_67;
-	int cycle, temp;
-	u32 val;
-	s32 sval;
+	int val, err = 0;
 
 	rf_b7_73 = rf_rr(dev, MT_RF(7, 73));
 	rf_b0_66 = rf_rr(dev, MT_RF(0, 66));
-	rf_b0_67 = rf_rr(dev, MT_RF(0, 73));
+	rf_b0_67 = rf_rr(dev, MT_RF(0, 67));
 
 	rf_wr(dev, MT_RF(7, 73), 0x02);
 	rf_wr(dev, MT_RF(0, 66), 0x23);
-	rf_wr(dev, MT_RF(0, 73), 0x01);
+	rf_wr(dev, MT_RF(0, 67), 0x01);
 
 	mt76_wr(dev, MT_BBP(CORE, 34), 0x00080055);
 
-	for (cycle = 0; cycle < 2000; cycle++) {
-		val = mt76_rr(dev, MT_BBP(CORE, 34));
-		if (!(val & 0x10))
-			break;
-		udelay(3);
-	}
-
-	if (cycle >= 2000) {
-		val &= 0x10;
-		mt76_wr(dev, MT_BBP(CORE, 34), val);
+	if (!mt76_poll(dev, MT_BBP(CORE, 34), BIT(4), 0, 2000)) {
+		mt76_clear(dev, MT_BBP(CORE, 34), BIT(4));
+		err = -ETIMEDOUT;
 		goto done;
 	}
 
-	sval = mt76_rr(dev, MT_BBP(CORE, 35)) & 0xff;
-	if (!(sval & 0x80))
-		sval &= 0x7f; /* Positive */
+	val = mt76_rr(dev, MT_BBP(CORE, 35)) & 0xff;
+	if (!(val & BIT(7)))
+		val &= 0x7f; /* Positive */
 	else
-		sval |= 0xffffff00; /* Negative */
+		val |= 0xffffff00; /* Negative */
 
-	temp = (35 * (sval - dev->cal.rx.temp_offset)) / 10 + 25;
+	*temp = (35 * (val - dev->cal.rx.temp_offset)) / 10 + 25;
 
 done:
 	rf_wr(dev, MT_RF(7, 73), rf_b7_73);
 	rf_wr(dev, MT_RF(0, 66), rf_b0_66);
-	rf_wr(dev, MT_RF(0, 73), rf_b0_67);
+	rf_wr(dev, MT_RF(0, 67), rf_b0_67);
+
+	return err;
 }
 
 static void mt76x0_dynamic_vga_tuning(struct mt76x02_dev *dev)
@@ -830,9 +823,10 @@ static void mt76x0_phy_calibrate(struct work_struct *work)
 {
 	struct mt76x02_dev *dev = container_of(work, struct mt76x02_dev,
 					       cal_work.work);
+	int temp;
 
 	mt76x0_dynamic_vga_tuning(dev);
-	mt76x0_temp_sensor(dev);
+	mt76x0_temp_sensor(dev, &temp);
 
 	ieee80211_queue_delayed_work(dev->mt76.hw, &dev->cal_work,
 				     MT_CALIBRATE_INTERVAL);
