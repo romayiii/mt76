@@ -84,26 +84,6 @@ void mt76x0_mac_set_short_preamble(struct mt76x02_dev *dev, bool short_preamb)
 		mt76_clear(dev, MT_AUTO_RSP_CFG, MT_AUTO_RSP_PREAMB_SHORT);
 }
 
-void mt76x0_mac_config_tsf(struct mt76x02_dev *dev, bool enable, int interval)
-{
-	u32 val = mt76_rr(dev, MT_BEACON_TIME_CFG);
-
-	val &= ~(MT_BEACON_TIME_CFG_TIMER_EN |
-		 MT_BEACON_TIME_CFG_SYNC_MODE |
-		 MT_BEACON_TIME_CFG_TBTT_EN);
-
-	if (!enable) {
-		mt76_wr(dev, MT_BEACON_TIME_CFG, val);
-		return;
-	}
-
-	val &= ~MT_BEACON_TIME_CFG_INTVAL;
-	val |= FIELD_PREP(MT_BEACON_TIME_CFG_INTVAL, interval << 4) |
-		MT_BEACON_TIME_CFG_TIMER_EN |
-		MT_BEACON_TIME_CFG_SYNC_MODE |
-		MT_BEACON_TIME_CFG_TBTT_EN;
-}
-
 void mt76x0_mac_set_ampdu_factor(struct mt76x02_dev *dev)
 {
 	struct ieee80211_sta *sta;
