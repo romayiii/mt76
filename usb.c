@@ -100,7 +100,7 @@ static u32 __mt76u_rr(struct mt76_dev *dev, u32 addr)
 	return data;
 }
 
-u32 mt76u_rr(struct mt76_dev *dev, u32 addr)
+static u32 mt76u_rr(struct mt76_dev *dev, u32 addr)
 {
 	u32 ret;
 
@@ -110,7 +110,6 @@ u32 mt76u_rr(struct mt76_dev *dev, u32 addr)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(mt76u_rr);
 
 /* should be called with usb_ctrl_mtx locked */
 static void __mt76u_wr(struct mt76_dev *dev, u32 addr, u32 val)
@@ -136,13 +135,12 @@ static void __mt76u_wr(struct mt76_dev *dev, u32 addr, u32 val)
 	trace_usb_reg_wr(dev, addr, val);
 }
 
-void mt76u_wr(struct mt76_dev *dev, u32 addr, u32 val)
+static void mt76u_wr(struct mt76_dev *dev, u32 addr, u32 val)
 {
 	mutex_lock(&dev->usb.usb_ctrl_mtx);
 	__mt76u_wr(dev, addr, val);
 	mutex_unlock(&dev->usb.usb_ctrl_mtx);
 }
-EXPORT_SYMBOL_GPL(mt76u_wr);
 
 static u32 mt76u_rmw(struct mt76_dev *dev, u32 addr,
 		     u32 mask, u32 val)
@@ -318,7 +316,7 @@ int mt76u_buf_alloc(struct mt76_dev *dev, struct mt76u_buf *buf,
 	if (!buf->urb)
 		return -ENOMEM;
 
-	buf->urb->sg = devm_kzalloc(dev->dev, nsgs * sizeof(*buf->urb->sg),
+	buf->urb->sg = devm_kcalloc(dev->dev, nsgs, sizeof(*buf->urb->sg),
 				    gfp);
 	if (!buf->urb->sg)
 		return -ENOMEM;
@@ -356,6 +354,7 @@ int mt76u_submit_buf(struct mt76_dev *dev, int dir, int index,
 
 	usb_fill_bulk_urb(buf->urb, udev, pipe, NULL, buf->len,
 			  complete_fn, context);
+	trace_submit_urb(dev, buf->urb);
 
 	return usb_submit_urb(buf->urb, gfp);
 }
@@ -442,6 +441,8 @@ static void mt76u_complete_rx(struct urb *urb)
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	unsigned long flags;
 
+	trace_rx_urb(dev, urb);
+
 	switch (urb->status) {
 	case -ECONNRESET:
 	case -ESHUTDOWN:
@@ -525,8 +526,8 @@ static int mt76u_alloc_rx(struct mt76_dev *dev)
 
 	spin_lock_init(&q->rx_page_lock);
 	spin_lock_init(&q->lock);
-	q->entry = devm_kzalloc(dev->dev,
-				MT_NUM_RX_ENTRIES * sizeof(*q->entry),
+	q->entry = devm_kcalloc(dev->dev,
+				MT_NUM_RX_ENTRIES, sizeof(*q->entry),
 				GFP_KERNEL);
 	if (!q->entry)
 		return -ENOMEM;
@@ -728,6 +729,8 @@ static void mt76u_tx_kick(struct mt76_dev *dev, struct mt76_queue *q)
 
 	while (q->first != q->tail) {
 		buf = &q->entry[q->first].ubuf;
+
+		trace_submit_urb(dev, buf->urb);
 		err = usb_submit_urb(buf->urb, GFP_ATOMIC);
 		if (err < 0) {
 			if (err == -ENODEV)
@@ -755,8 +758,8 @@ static int mt76u_alloc_tx(struct mt76_dev *dev)
 		INIT_LIST_HEAD(&q->swq);
 		q->hw_idx = mt76_ac_to_hwq(i);
 
-		q->entry = devm_kzalloc(dev->dev,
-					MT_NUM_TX_ENTRIES * sizeof(*q->entry),
+		q->entry = devm_kcalloc(dev->dev,
+					MT_NUM_TX_ENTRIES, sizeof(*q->entry),
 					GFP_KERNEL);
 		if (!q->entry)
 			return -ENOMEM;

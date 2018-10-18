@@ -354,7 +354,7 @@ struct mt76x02_dev *mt76x2_alloc_device(struct device *pdev)
 {
 	static const struct mt76_driver_ops drv_ops = {
 		.txwi_size = sizeof(struct mt76x02_txwi),
-		.update_survey = mt76x2_update_channel,
+		.update_survey = mt76x02_update_channel,
 		.tx_prepare_skb = mt76x02_tx_prepare_skb,
 		.tx_complete_skb = mt76x02_tx_complete_skb,
 		.rx_skb = mt76x02_queue_rx_skb,
@@ -467,7 +467,6 @@ int mt76x2_register_device(struct mt76x02_dev *dev)
 	int i, ret;
 
 	INIT_DELAYED_WORK(&dev->cal_work, mt76x2_phy_calibrate);
-	INIT_DELAYED_WORK(&dev->mac_work, mt76x2_mac_work);
 
 	mt76x2_init_device(dev);
 
@@ -515,7 +514,7 @@ int mt76x2_register_device(struct mt76x02_dev *dev)
 	if (ret)
 		goto fail;
 
-	mt76x2_init_debugfs(dev);
+	mt76x02_init_debugfs(dev);
 	mt76x2_init_txpower(dev, &dev->mt76.sband_2g.sband);
 	mt76x2_init_txpower(dev, &dev->mt76.sband_5g.sband);
 

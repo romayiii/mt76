@@ -26,13 +26,7 @@
 #include "mt76x02_dfs.h"
 #include "mt76x02_dma.h"
 
-struct mt76x02_mac_stats {
-	u64 rx_stat[6];
-	u64 tx_stat[6];
-	u64 aggr_stat[2];
-	u64 aggr_n[32];
-	u64 zero_len_del[2];
-};
+#define MT_CALIBRATE_INTERVAL	HZ
 
 #define MT_MAX_CHAINS		2
 struct mt76x02_rx_freq_cal {
@@ -55,7 +49,8 @@ struct mt76x02_calibration {
 	s8 agc_gain_adjust;
 	s8 low_gain;
 
-	u8 temp;
+	s8 temp_vco;
+	s8 temp;
 
 	bool init_cal_done;
 	bool tssi_cal_done;
@@ -82,8 +77,6 @@ struct mt76x02_dev {
 	struct delayed_work cal_work;
 	struct delayed_work mac_work;
 
-	struct mt76x02_mac_stats stats;
-	atomic_t avg_ampdu_len;
 	u32 aggr_stats[32];
 
 	struct sk_buff *beacons[8];
@@ -100,8 +93,6 @@ struct mt76x02_dev {
 	bool enable_tpc;
 
 	bool no_2ghz;
-
-	u8 agc_save;
 
 	u8 coverage_class;
 	u8 slottime;
@@ -160,6 +151,8 @@ extern const u16 mt76x02_beacon_offsets[16];
 void mt76x02_set_beacon_offsets(struct mt76x02_dev *dev);
 void mt76x02_set_irq_mask(struct mt76x02_dev *dev, u32 clear, u32 set);
 void mt76x02_mac_start(struct mt76x02_dev *dev);
+
+void mt76x02_init_debugfs(struct mt76x02_dev *dev);
 
 static inline bool is_mt76x2(struct mt76x02_dev *dev)
 {

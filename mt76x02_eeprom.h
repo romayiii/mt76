@@ -25,6 +25,7 @@ enum mt76x02_eeprom_field {
 	MT_EE_VERSION =				0x002,
 	MT_EE_MAC_ADDR =			0x004,
 	MT_EE_PCI_ID =				0x00A,
+	MT_EE_ANTENNA =				0x022,
 	MT_EE_NIC_CONF_0 =			0x034,
 	MT_EE_NIC_CONF_1 =			0x036,
 	MT_EE_COUNTRY_REGION_5GHZ =		0x038,
@@ -104,6 +105,8 @@ enum mt76x02_eeprom_field {
 	__MT_EE_MAX
 };
 
+#define MT_EE_ANTENNA_DUAL			BIT(15)
+
 #define MT_EE_NIC_CONF_0_RX_PATH		GENMASK(3, 0)
 #define MT_EE_NIC_CONF_0_TX_PATH		GENMASK(7, 4)
 #define MT_EE_NIC_CONF_0_PA_TYPE		GENMASK(9, 8)
@@ -118,12 +121,9 @@ enum mt76x02_eeprom_field {
 #define MT_EE_NIC_CONF_1_LNA_EXT_5G		BIT(3)
 #define MT_EE_NIC_CONF_1_TX_ALC_EN		BIT(13)
 
-#define MT_EE_NIC_CONF_2_RX_STREAM		GENMASK(3, 0)
-#define MT_EE_NIC_CONF_2_TX_STREAM		GENMASK(7, 4)
-#define MT_EE_NIC_CONF_2_HW_ANTDIV		BIT(8)
+#define MT_EE_NIC_CONF_2_ANT_OPT		BIT(3)
+#define MT_EE_NIC_CONF_2_ANT_DIV		BIT(4)
 #define MT_EE_NIC_CONF_2_XTAL_OPTION		GENMASK(10, 9)
-#define MT_EE_NIC_CONF_2_TEMP_DISABLE		BIT(11)
-#define MT_EE_NIC_CONF_2_COEX_METHOD		GENMASK(15, 13)
 
 #define MT_EFUSE_USAGE_MAP_SIZE			(MT_EE_USAGE_MAP_END - \
 						 MT_EE_USAGE_MAP_START + 1)
@@ -177,27 +177,6 @@ mt76x02_eeprom_get(struct mt76x02_dev *dev,
 		return -1;
 
 	return get_unaligned_le16(dev->mt76.eeprom.data + field);
-}
-
-static inline bool
-mt76x02_temp_tx_alc_enabled(struct mt76x02_dev *dev)
-{
-	u16 val;
-
-	val = mt76x02_eeprom_get(dev, MT_EE_TX_POWER_EXT_PA_5G);
-	if (!(val & BIT(15)))
-		return false;
-
-	return mt76x02_eeprom_get(dev, MT_EE_NIC_CONF_1) &
-	       MT_EE_NIC_CONF_1_TEMP_TX_ALC;
-}
-
-static inline bool
-mt76x02_tssi_enabled(struct mt76x02_dev *dev)
-{
-	return !mt76x02_temp_tx_alc_enabled(dev) &&
-	       (mt76x02_eeprom_get(dev, MT_EE_NIC_CONF_1) &
-		MT_EE_NIC_CONF_1_TX_ALC_EN);
 }
 
 bool mt76x02_ext_pa_enabled(struct mt76x02_dev *dev, enum nl80211_band band);

@@ -282,7 +282,7 @@ int mt76x2u_register_device(struct mt76x02_dev *dev)
 
 	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
 
-	mt76x2_init_debugfs(dev);
+	mt76x02_init_debugfs(dev);
 	mt76x2_init_txpower(dev, &dev->mt76.sband_2g.sband);
 	mt76x2_init_txpower(dev, &dev->mt76.sband_5g.sband);
 
@@ -297,6 +297,7 @@ void mt76x2u_stop_hw(struct mt76x02_dev *dev)
 {
 	mt76u_stop_stat_wk(&dev->mt76);
 	cancel_delayed_work_sync(&dev->cal_work);
+	cancel_delayed_work_sync(&dev->mac_work);
 	mt76x2u_mac_stop(dev);
 }
 

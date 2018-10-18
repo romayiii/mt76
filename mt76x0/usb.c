@@ -17,7 +17,6 @@
 
 #include "mt76x0.h"
 #include "mcu.h"
-#include "trace.h"
 #include "../mt76x02_usb.h"
 
 static struct usb_device_id mt76x0_device_table[] = {
@@ -117,6 +116,7 @@ static int mt76x0u_start(struct ieee80211_hw *hw)
 	if (ret)
 		goto out;
 
+	mt76x0_phy_calibrate(dev, true);
 	ieee80211_queue_delayed_work(dev->mt76.hw, &dev->mac_work,
 				     MT_CALIBRATE_INTERVAL);
 	ieee80211_queue_delayed_work(dev->mt76.hw, &dev->cal_work,

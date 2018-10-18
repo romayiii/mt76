@@ -178,3 +178,81 @@ int mt76x02_phy_get_min_avg_rssi(struct mt76x02_dev *dev)
 	return min_rssi;
 }
 EXPORT_SYMBOL_GPL(mt76x02_phy_get_min_avg_rssi);
+
+void mt76x02_phy_set_bw(struct mt76x02_dev *dev, int width, u8 ctrl)
+{
+	int core_val, agc_val;
+
+	switch (width) {
+	case NL80211_CHAN_WIDTH_80:
+		core_val = 3;
+		agc_val = 7;
+		break;
+	case NL80211_CHAN_WIDTH_40:
+		core_val = 2;
+		agc_val = 3;
+		break;
+	default:
+		core_val = 0;
+		agc_val = 1;
+		break;
+	}
+
+	mt76_rmw_field(dev, MT_BBP(CORE, 1), MT_BBP_CORE_R1_BW, core_val);
+	mt76_rmw_field(dev, MT_BBP(AGC, 0), MT_BBP_AGC_R0_BW, agc_val);
+	mt76_rmw_field(dev, MT_BBP(AGC, 0), MT_BBP_AGC_R0_CTRL_CHAN, ctrl);
+	mt76_rmw_field(dev, MT_BBP(TXBE, 0), MT_BBP_TXBE_R0_CTRL_CHAN, ctrl);
+}
+EXPORT_SYMBOL_GPL(mt76x02_phy_set_bw);
+
+void mt76x02_phy_set_band(struct mt76x02_dev *dev, int band,
+			  bool primary_upper)
+{
+	switch (band) {
+	case NL80211_BAND_2GHZ:
+		mt76_set(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_2G);
+		mt76_clear(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_5G);
+		break;
+	case NL80211_BAND_5GHZ:
+		mt76_clear(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_2G);
+		mt76_set(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_5G);
+		break;
+	}
+
+	mt76_rmw_field(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_UPPER_40M,
+		       primary_upper);
+}
+EXPORT_SYMBOL_GPL(mt76x02_phy_set_band);
+
+bool mt76x02_phy_adjust_vga_gain(struct mt76x02_dev *dev)
+{
+	u8 limit = dev->cal.low_gain > 0 ? 16 : 4;
+	bool ret = false;
+	u32 false_cca;
+
+	false_cca = FIELD_GET(MT_RX_STAT_1_CCA_ERRORS, mt76_rr(dev, MT_RX_STAT_1));
+	dev->cal.false_cca = false_cca;
+	if (false_cca > 800 && dev->cal.agc_gain_adjust < limit) {
+		dev->cal.agc_gain_adjust += 2;
+		ret = true;
+	} else if ((false_cca < 10 && dev->cal.agc_gain_adjust > 0) ||
+		   (dev->cal.agc_gain_adjust >= limit && false_cca < 500)) {
+		dev->cal.agc_gain_adjust -= 2;
+		ret = true;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt76x02_phy_adjust_vga_gain);
+
+void mt76x02_init_agc_gain(struct mt76x02_dev *dev)
+{
+	dev->cal.agc_gain_init[0] = mt76_get_field(dev, MT_BBP(AGC, 8),
+						   MT_BBP_AGC_GAIN);
+	dev->cal.agc_gain_init[1] = mt76_get_field(dev, MT_BBP(AGC, 9),
+						   MT_BBP_AGC_GAIN);
+	memcpy(dev->cal.agc_gain_cur, dev->cal.agc_gain_init,
+	       sizeof(dev->cal.agc_gain_cur));
+	dev->cal.low_gain = -1;
+}
+EXPORT_SYMBOL_GPL(mt76x02_init_agc_gain);

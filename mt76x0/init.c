@@ -16,7 +16,6 @@
 
 #include "mt76x0.h"
 #include "eeprom.h"
-#include "trace.h"
 #include "mcu.h"
 #include "initvals.h"
 
@@ -113,7 +112,7 @@ static int mt76x0_init_bbp(struct mt76x02_dev *dev)
 {
 	int ret, i;
 
-	ret = mt76x0_wait_bbp_ready(dev);
+	ret = mt76x0_phy_wait_bbp_ready(dev);
 	if (ret)
 		return ret;
 
@@ -134,8 +133,6 @@ static int mt76x0_init_bbp(struct mt76x02_dev *dev)
 
 static void mt76x0_init_mac_registers(struct mt76x02_dev *dev)
 {
-	u32 reg;
-
 	RANDOM_WRITE(dev, common_mac_reg_table);
 
 	mt76x02_set_beacon_offsets(dev);
@@ -144,27 +141,22 @@ static void mt76x0_init_mac_registers(struct mt76x02_dev *dev)
 	RANDOM_WRITE(dev, mt76x0_mac_reg_table);
 
 	/* Release BBP and MAC reset MAC_SYS_CTRL[1:0] = 0x0 */
-	reg = mt76_rr(dev, MT_MAC_SYS_CTRL);
-	reg &= ~0x3;
-	mt76_wr(dev, MT_MAC_SYS_CTRL, reg);
+	mt76_clear(dev, MT_MAC_SYS_CTRL, 0x3);
 
 	/* Set 0x141C[15:12]=0xF */
-	reg = mt76_rr(dev, MT_EXT_CCA_CFG);
-	reg |= 0x0000F000;
-	mt76_wr(dev, MT_EXT_CCA_CFG, reg);
+	mt76_set(dev, MT_EXT_CCA_CFG, 0xf000);
 
 	mt76_clear(dev, MT_FCE_L2_STUFF, MT_FCE_L2_STUFF_WR_MPDU_LEN_EN);
 
 	/*
-		TxRing 9 is for Mgmt frame.
-		TxRing 8 is for In-band command frame.
-		WMM_RG0_TXQMA: This register setting is for FCE to define the rule of TxRing 9.
-		WMM_RG1_TXQMA: This register setting is for FCE to define the rule of TxRing 8.
-	*/
-	reg = mt76_rr(dev, MT_WMM_CTRL);
-	reg &= ~0x000003FF;
-	reg |= 0x00000201;
-	mt76_wr(dev, MT_WMM_CTRL, reg);
+	 * tx_ring 9 is for mgmt frame
+	 * tx_ring 8 is for in-band command frame.
+	 * WMM_RG0_TXQMA: this register setting is for FCE to
+	 *		  define the rule of tx_ring 9
+	 * WMM_RG1_TXQMA: this register setting is for FCE to
+	 *		  define the rule of tx_ring 8
+	 */
+	mt76_rmw(dev, MT_WMM_CTRL, 0x3ff, 0x201);
 }
 
 static int mt76x0_init_wcid_mem(struct mt76x02_dev *dev)
@@ -339,7 +331,6 @@ mt76x0_alloc_device(struct device *pdev,
 
 	dev = container_of(mdev, struct mt76x02_dev, mt76);
 	mutex_init(&dev->phy_mutex);
-	atomic_set(&dev->avg_ampdu_len, 1);
 
 	return dev;
 }
@@ -378,7 +369,7 @@ int mt76x0_register_device(struct mt76x02_dev *dev)
 
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION);
 
-	INIT_DELAYED_WORK(&dev->mac_work, mt76x0_mac_work);
+	INIT_DELAYED_WORK(&dev->mac_work, mt76x02_mac_work);
 
 	ret = mt76_register_device(mdev, true, mt76x02_rates,
 				   ARRAY_SIZE(mt76x02_rates));
@@ -389,7 +380,7 @@ int mt76x0_register_device(struct mt76x02_dev *dev)
 	if (mdev->cap.has_5ghz)
 		mt76x0_vht_cap_mask(&dev->mt76.sband_5g.sband);
 
-	mt76x0_init_debugfs(dev);
+	mt76x02_init_debugfs(dev);
 
 	return 0;
 }

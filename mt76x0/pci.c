@@ -28,6 +28,7 @@ static int mt76x0e_start(struct ieee80211_hw *hw)
 	mutex_lock(&dev->mt76.mutex);
 
 	mt76x02_mac_start(dev);
+	mt76x0_phy_calibrate(dev, true);
 	ieee80211_queue_delayed_work(dev->mt76.hw, &dev->mac_work,
 				     MT_CALIBRATE_INTERVAL);
 	ieee80211_queue_delayed_work(dev->mt76.hw, &dev->cal_work,
@@ -84,6 +85,7 @@ static const struct ieee80211_ops mt76x0e_ops = {
 	.ampdu_action = mt76x02_ampdu_action,
 	.sta_rate_tbl_update = mt76x02_sta_rate_tbl_update,
 	.wake_tx_queue = mt76_wake_tx_queue,
+	.get_survey = mt76_get_survey,
 };
 
 static int mt76x0e_register_device(struct mt76x02_dev *dev)
@@ -134,6 +136,7 @@ mt76x0e_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	static const struct mt76_driver_ops drv_ops = {
 		.txwi_size = sizeof(struct mt76x02_txwi),
+		.update_survey = mt76x02_update_channel,
 		.tx_prepare_skb = mt76x02_tx_prepare_skb,
 		.tx_complete_skb = mt76x02_tx_complete_skb,
 		.rx_skb = mt76x02_queue_rx_skb,

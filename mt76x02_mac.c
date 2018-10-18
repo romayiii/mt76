@@ -18,7 +18,7 @@
 #include "mt76x02.h"
 #include "mt76x02_trace.h"
 
-enum mt76x02_cipher_type
+static enum mt76x02_cipher_type
 mt76x02_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
 {
 	memset(key_data, 0, 32);
@@ -43,7 +43,6 @@ mt76x02_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
 		return MT_CIPHER_NONE;
 	}
 }
-EXPORT_SYMBOL_GPL(mt76x02_mac_get_key_info);
 
 int mt76x02_mac_shared_key_setup(struct mt76x02_dev *dev, u8 vif_idx,
 				 u8 key_idx, struct ieee80211_key_conf *key)
@@ -95,7 +94,6 @@ int mt76x02_mac_wcid_set_key(struct mt76x02_dev *dev, u8 idx,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mt76x02_mac_wcid_set_key);
 
 void mt76x02_mac_wcid_setup(struct mt76x02_dev *dev, u8 idx,
 			    u8 vif_idx, u8 *mac)
@@ -154,7 +152,6 @@ void mt76x02_txq_init(struct mt76x02_dev *dev, struct ieee80211_txq *txq)
 
 	mt76_txq_init(&dev->mt76, txq);
 }
-EXPORT_SYMBOL_GPL(mt76x02_txq_init);
 
 static __le16
 mt76x02_mac_tx_rate_val(struct mt76x02_dev *dev,
@@ -237,9 +234,10 @@ bool mt76x02_mac_load_tx_status(struct mt76x02_dev *dev,
 	stat->retry = FIELD_GET(MT_TX_STAT_FIFO_EXT_RETRY, stat2);
 	stat->pktid = FIELD_GET(MT_TX_STAT_FIFO_EXT_PKTID, stat2);
 
+	trace_mac_txstat_fetch(dev, stat);
+
 	return true;
 }
-EXPORT_SYMBOL_GPL(mt76x02_mac_load_tx_status);
 
 static int
 mt76x02_mac_process_tx_rate(struct ieee80211_tx_rate *txrate, u16 rate,
@@ -483,7 +481,6 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 out:
 	rcu_read_unlock();
 }
-EXPORT_SYMBOL_GPL(mt76x02_send_tx_status);
 
 int
 mt76x02_mac_process_rate(struct mt76_rx_status *status, u16 rate)
@@ -695,8 +692,6 @@ void mt76x02_mac_poll_tx_status(struct mt76x02_dev *dev, bool irq)
 		if (!ret)
 			break;
 
-		trace_mac_txstat_fetch(dev, &stat);
-
 		if (!irq) {
 			mt76x02_send_tx_status(dev, &stat, &update);
 			continue;
@@ -705,7 +700,6 @@ void mt76x02_mac_poll_tx_status(struct mt76x02_dev *dev, bool irq)
 		kfifo_put(&dev->txstatus_fifo, stat);
 	}
 }
-EXPORT_SYMBOL_GPL(mt76x02_mac_poll_tx_status);
 
 static void
 mt76x02_mac_queue_txdone(struct mt76x02_dev *dev, struct sk_buff *skb,
@@ -735,3 +729,59 @@ void mt76x02_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 		dev_kfree_skb_any(e->skb);
 }
 EXPORT_SYMBOL_GPL(mt76x02_tx_complete_skb);
+
+void mt76x02_update_channel(struct mt76_dev *mdev)
+{
+	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
+	struct mt76_channel_state *state;
+	u32 active, busy;
+
+	state = mt76_channel_state(&dev->mt76, dev->mt76.chandef.chan);
+
+	busy = mt76_rr(dev, MT_CH_BUSY);
+	active = busy + mt76_rr(dev, MT_CH_IDLE);
+
+	spin_lock_bh(&dev->mt76.cc_lock);
+	state->cc_busy += busy;
+	state->cc_active += active;
+	spin_unlock_bh(&dev->mt76.cc_lock);
+}
+EXPORT_SYMBOL_GPL(mt76x02_update_channel);
+
+static void mt76x02_check_mac_err(struct mt76x02_dev *dev)
+{
+	u32 val = mt76_rr(dev, 0x10f4);
+
+	if (!(val & BIT(29)) || !(val & (BIT(7) | BIT(5))))
+		return;
+
+	dev_err(dev->mt76.dev, "mac specific condition occurred\n");
+
+	mt76_set(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_RESET_CSR);
+	udelay(10);
+	mt76_clear(dev, MT_MAC_SYS_CTRL,
+		   MT_MAC_SYS_CTRL_ENABLE_TX | MT_MAC_SYS_CTRL_ENABLE_RX);
+}
+
+void mt76x02_mac_work(struct work_struct *work)
+{
+	struct mt76x02_dev *dev = container_of(work, struct mt76x02_dev,
+					       mac_work.work);
+	int i, idx;
+
+	mt76x02_update_channel(&dev->mt76);
+	for (i = 0, idx = 0; i < 16; i++) {
+		u32 val = mt76_rr(dev, MT_TX_AGG_CNT(i));
+
+		dev->aggr_stats[idx++] += val & 0xffff;
+		dev->aggr_stats[idx++] += val >> 16;
+	}
+
+	/* XXX: check beacon stuck for ap mode */
+	if (!dev->beacon_mask)
+		mt76x02_check_mac_err(dev);
+
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
+				     MT_CALIBRATE_INTERVAL);
+}
+EXPORT_SYMBOL_GPL(mt76x02_mac_work);

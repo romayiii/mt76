@@ -199,8 +199,6 @@ mt76x02_skb_tx_info(struct sk_buff *skb)
 }
 
 void mt76x02_txq_init(struct mt76x02_dev *dev, struct ieee80211_txq *txq);
-enum mt76x02_cipher_type
-mt76x02_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data);
 
 int mt76x02_mac_shared_key_setup(struct mt76x02_dev *dev, u8 vif_idx,
 				 u8 key_idx, struct ieee80211_key_conf *key);
@@ -226,4 +224,6 @@ void mt76x02_mac_write_txwi(struct mt76x02_dev *dev, struct mt76x02_txwi *txwi,
 void mt76x02_mac_poll_tx_status(struct mt76x02_dev *dev, bool irq);
 void mt76x02_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			     struct mt76_queue_entry *e, bool flush);
+void mt76x02_update_channel(struct mt76_dev *mdev);
+void mt76x02_mac_work(struct work_struct *work);
 #endif

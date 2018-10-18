@@ -31,11 +31,6 @@
 #define MT7662_ROM_PATCH	"mt7662_rom_patch.bin"
 #define MT7662_EEPROM_SIZE	512
 
-#define MT7662U_FIRMWARE	"mediatek/mt7662u.bin"
-#define MT7662U_ROM_PATCH	"mediatek/mt7662u_rom_patch.bin"
-
-#define MT_CALIBRATE_INTERVAL	HZ
-
 #include "../mt76x02.h"
 #include "mac.h"
 #include "dfs.h"
@@ -57,7 +52,6 @@ extern const struct ieee80211_ops mt76x2_ops;
 
 struct mt76x02_dev *mt76x2_alloc_device(struct device *pdev);
 int mt76x2_register_device(struct mt76x02_dev *dev);
-void mt76x2_init_debugfs(struct mt76x02_dev *dev);
 void mt76x2_init_device(struct mt76x02_dev *dev);
 
 void mt76x2_phy_power_on(struct mt76x02_dev *dev);
@@ -88,8 +82,6 @@ void mt76x2_pre_tbtt_tasklet(unsigned long arg);
 
 void mt76x2_sta_ps(struct mt76_dev *dev, struct ieee80211_sta *sta, bool ps);
 
-void mt76x2_update_channel(struct mt76_dev *mdev);
-
 void mt76x2_reset_wlan(struct mt76x02_dev *dev, bool enable);
 void mt76x2_init_txpower(struct mt76x02_dev *dev,
 			 struct ieee80211_supported_band *sband);
@@ -100,8 +92,7 @@ void mt76x2_phy_set_txpower_regs(struct mt76x02_dev *dev,
 				 enum nl80211_band band);
 void mt76x2_configure_tx_delay(struct mt76x02_dev *dev,
 			       enum nl80211_band band, u8 bw);
-void mt76x2_phy_set_bw(struct mt76x02_dev *dev, int width, u8 ctrl);
-void mt76x2_phy_set_band(struct mt76x02_dev *dev, int band, bool primary_upper);
 void mt76x2_apply_gain_adj(struct mt76x02_dev *dev);
+void mt76x2_phy_update_channel_gain(struct mt76x02_dev *dev);
 
 #endif
