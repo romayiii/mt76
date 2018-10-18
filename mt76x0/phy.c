@@ -239,17 +239,61 @@ mt76x0_phy_set_band(struct mt76x02_dev *dev, enum nl80211_band band)
 	}
 }
 
+
+static void mt76x0_phy_rf_switch_band(struct mt76x02_dev *dev,
+				      struct cfg80211_chan_def *chandef)
+{
+	enum nl80211_chan_width width = NL80211_CHAN_WIDTH_20;
+	enum nl80211_band band = NL80211_BAND_2GHZ;
+	u8 r6, r7, r8;
+	u8 r58_59_76 = 0x40;
+
+	if (chandef) {
+		band = chandef->chan->band;
+		width = chandef->width;
+	}
+
+	switch (width) {
+	case NL80211_CHAN_WIDTH_80:
+		r6 = r7 = 0x10;
+		r8 = 0x00;
+		r58_59_76 = 0x10;
+		break;
+	case NL80211_CHAN_WIDTH_40:
+		r6 = r7 = 0x20;
+		if (band == NL80211_BAND_2GHZ)
+			r6 = 0x1c;
+		r8 = 0x01;
+		break;
+	default:
+		r6 = r7 = 0x40;
+		r8 = 0x03;
+		break;
+	}
+
+	mt76x0_rf_wr(dev, MT_RF(0, 17), 0x00);
+	mt76x0_rf_wr(dev, MT_RF(7, 6), r6);
+	mt76x0_rf_wr(dev, MT_RF(7, 7), r7);
+	mt76x0_rf_wr(dev, MT_RF(7, 8), r8);
+	mt76x0_rf_wr(dev, MT_RF(7, 58), r58_59_76);
+	mt76x0_rf_wr(dev, MT_RF(7, 59), r58_59_76);
+	mt76x0_rf_wr(dev, MT_RF(7, 60), 0xaa);
+	mt76x0_rf_wr(dev, MT_RF(7, 76), r58_59_76);
+}
+
 static void
-mt76x0_phy_set_chan_rf_params(struct mt76x02_dev *dev, u8 channel, u16 rf_bw_band)
+mt76x0_phy_set_chan_rf_params(struct mt76x02_dev *dev,
+			      struct cfg80211_chan_def *chandef, u16 rf_bw_band)
 {
 	const struct mt76x0_freq_item *freq_item;
 	u16 rf_band = rf_bw_band & 0xff00;
-	u16 rf_bw = rf_bw_band & 0x00ff;
 	enum nl80211_band band;
 	bool b_sdm = false;
 	u32 mac_reg;
+	u8 channel;
 	int i;
 
+	channel = chandef->chan->hw_value;
 	for (i = 0; i < ARRAY_SIZE(mt76x0_sdm_channel); i++) {
 		if (channel == mt76x0_sdm_channel[i]) {
 			b_sdm = true;
@@ -344,18 +388,7 @@ mt76x0_phy_set_chan_rf_params(struct mt76x02_dev *dev, u8 channel, u16 rf_bw_ban
 		}
 	}
 
-	for (i = 0; i < ARRAY_SIZE(mt76x0_rf_bw_switch_tab); i++) {
-		if (rf_bw == mt76x0_rf_bw_switch_tab[i].bw_band) {
-			mt76x0_rf_wr(dev,
-				     mt76x0_rf_bw_switch_tab[i].rf_bank_reg,
-				     mt76x0_rf_bw_switch_tab[i].value);
-		} else if ((rf_bw == (mt76x0_rf_bw_switch_tab[i].bw_band & 0xFF)) &&
-			   (rf_band & mt76x0_rf_bw_switch_tab[i].bw_band)) {
-			mt76x0_rf_wr(dev,
-				     mt76x0_rf_bw_switch_tab[i].rf_bank_reg,
-				     mt76x0_rf_bw_switch_tab[i].value);
-		}
-	}
+	mt76x0_phy_rf_switch_band(dev, chandef);
 
 	for (i = 0; i < ARRAY_SIZE(mt76x0_rf_band_switch_tab); i++) {
 		if (mt76x0_rf_band_switch_tab[i].bw_band & rf_band) {
@@ -623,7 +656,7 @@ int mt76x0_phy_set_channel(struct mt76x02_dev *dev,
 		 ext_cca_chan[ch_group_index]);
 
 	mt76x0_phy_set_band(dev, chandef->chan->band);
-	mt76x0_phy_set_chan_rf_params(dev, channel, rf_bw_band);
+	mt76x0_phy_set_chan_rf_params(dev, chandef, rf_bw_band);
 
 	/* set Japan Tx filter at channel 14 */
 	if (channel == 14)
@@ -751,15 +784,7 @@ static void mt76x0_phy_rf_init(struct mt76x02_dev *dev)
 	RF_RANDOM_WRITE(dev, mt76x0_rf_2g_channel_0_tab);
 	RF_RANDOM_WRITE(dev, mt76x0_rf_5g_channel_0_tab);
 	RF_RANDOM_WRITE(dev, mt76x0_rf_vga_channel_0_tab);
-
-	for (i = 0; i < ARRAY_SIZE(mt76x0_rf_bw_switch_tab); i++) {
-		const struct mt76x0_rf_switch_item *item = &mt76x0_rf_bw_switch_tab[i];
-
-		if (item->bw_band == RF_BW_20)
-			mt76x0_rf_wr(dev, item->rf_bank_reg, item->value);
-		else if (((RF_G_BAND | RF_BW_20) & item->bw_band) == (RF_G_BAND | RF_BW_20))
-			mt76x0_rf_wr(dev, item->rf_bank_reg, item->value);
-	}
+	mt76x0_phy_rf_switch_band(dev, NULL);
 
 	for (i = 0; i < ARRAY_SIZE(mt76x0_rf_band_switch_tab); i++) {
 		if (mt76x0_rf_band_switch_tab[i].bw_band & RF_G_BAND) {
