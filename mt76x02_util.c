@@ -211,6 +211,7 @@ int mt76x02_vif_init(struct mt76x02_dev *dev, struct ieee80211_vif *vif,
 		     unsigned int idx)
 {
 	struct mt76x02_vif *mvif = (struct mt76x02_vif *)vif->drv_priv;
+	struct wireless_dev *wdev = ieee80211_vif_to_wdev(vif);
 	struct mt76_txq *mtxq;
 
 	mvif->idx = idx;
@@ -221,7 +222,7 @@ int mt76x02_vif_init(struct mt76x02_dev *dev, struct ieee80211_vif *vif,
 
 	mt76_txq_init(&dev->mt76, vif->txq);
 
-	return 0;
+	return xdp_rxq_info_reg(&mvif->xdp_rxq, wdev->netdev, 0);
 }
 EXPORT_SYMBOL_GPL(mt76x02_vif_init);
 
@@ -257,9 +258,11 @@ EXPORT_SYMBOL_GPL(mt76x02_add_interface);
 void mt76x02_remove_interface(struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif)
 {
+	struct mt76x02_vif *mvif = (struct mt76x02_vif *)vif->drv_priv;
 	struct mt76x02_dev *dev = hw->priv;
 
 	mt76_txq_remove(&dev->mt76, vif->txq);
+	xdp_rxq_info_unreg(&mvif->xdp_rxq);
 }
 EXPORT_SYMBOL_GPL(mt76x02_remove_interface);
 
