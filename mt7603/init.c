@@ -37,13 +37,12 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 	struct mt7603_dev *dev;
 	struct mt76_dev *mdev;
 
-	mdev = mt76_alloc_device(sizeof(*dev), &mt7603_ops);
+	mdev = mt76_alloc_device(pdev, sizeof(*dev), &mt7603_ops,
+				 &drv_ops);
 	if (!mdev)
 		return NULL;
 
 	dev = container_of(mdev, struct mt7603_dev, mt76);
-	mdev->dev = pdev;
-	mdev->drv = &drv_ops;
 
 	return dev;
 }
