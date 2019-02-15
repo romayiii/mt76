@@ -648,6 +648,7 @@ static void mt7603_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *cont
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt7603_dev *dev = hw->priv;
 	struct mt76_wcid *wcid = &dev->global_sta.wcid;
+	int qid = skb_get_queue_mapping(skb);
 
 	if (control->sta) {
 		struct mt7603_sta *msta;
@@ -667,7 +668,12 @@ static void mt7603_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *cont
 		wcid = &mvif->sta.wcid;
 	}
 
-	mt76_tx(&dev->mt76, control->sta, wcid, skb);
+	if (WARN_ON(qid >= MT_TXQ_PSD)) {
+		qid = MT_TXQ_BE;
+		skb_set_queue_mapping(skb, qid);
+	}
+
+	mt76_tx(&dev->mt76, control->sta, wcid, skb, qid);
 }
 
 static int
