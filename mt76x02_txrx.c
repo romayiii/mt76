@@ -27,6 +27,7 @@ void mt76x02_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	struct mt76x02_dev *dev = hw->priv;
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
+	int qid = skb_get_queue_mapping(skb);
 
 	if (control->sta) {
 		struct mt76x02_sta *msta;
@@ -46,7 +47,12 @@ void mt76x02_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 		wcid = &mvif->group_wcid;
 	}
 
-	mt76_tx(&dev->mt76, control->sta, wcid, skb);
+	if (WARN_ON(qid >= MT_TXQ_PSD)) {
+		qid = MT_TXQ_BE;
+		skb_set_queue_mapping(skb, qid);
+	}
+
+	mt76_tx(&dev->mt76, control->sta, wcid, skb, qid);
 }
 EXPORT_SYMBOL_GPL(mt76x02_tx);
 

@@ -252,19 +252,13 @@ void mt76_tx_complete_skb(struct mt76_dev *dev, struct sk_buff *skb)
 }
 EXPORT_SYMBOL_GPL(mt76_tx_complete_skb);
 
-void
-mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
-	struct mt76_wcid *wcid, struct sk_buff *skb)
+void mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
+	     struct mt76_wcid *wcid, struct sk_buff *skb,
+	     int qid)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
 	struct mt76_queue *q;
-	int qid = skb_get_queue_mapping(skb);
-
-	if (WARN_ON(qid >= MT_TXQ_PSD)) {
-		qid = MT_TXQ_BE;
-		skb_set_queue_mapping(skb, qid);
-	}
 
 	if (!wcid->tx_rate_set)
 		ieee80211_get_tx_rates(info->control.vif, sta, skb,
