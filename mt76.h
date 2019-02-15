@@ -644,6 +644,17 @@ static inline struct mt76_tx_cb *mt76_tx_skb_cb(struct sk_buff *skb)
 	return ((void *) IEEE80211_SKB_CB(skb)->status.status_driver_data);
 }
 
+void mt76_sta_init_tx_queue(struct mt76_dev *dev,
+			    struct ieee80211_sta *sta);
+void __mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq, int qid);
+static inline void
+mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq)
+{
+	int qid = txq->sta ? txq->ac : MT_TXQ_BE;
+
+	return __mt76_txq_init(dev, txq, qid);
+}
+
 int mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta);
@@ -651,7 +662,6 @@ int mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 void mt76_rx(struct mt76_dev *dev, enum mt76_rxq_id q, struct sk_buff *skb);
 void mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 	     struct mt76_wcid *wcid, struct sk_buff *skb, int qid);
-void mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq);
 void mt76_txq_remove(struct mt76_dev *dev, struct ieee80211_txq *txq);
 void mt76_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq);
 void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta,

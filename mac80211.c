@@ -644,19 +644,11 @@ void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 }
 EXPORT_SYMBOL_GPL(mt76_rx_poll_complete);
 
-static int
-mt76_sta_add(struct mt76_dev *dev, struct ieee80211_vif *vif,
-	     struct ieee80211_sta *sta)
+void mt76_sta_init_tx_queue(struct mt76_dev *dev,
+			    struct ieee80211_sta *sta)
 {
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
-	int ret;
 	int i;
-
-	mutex_lock(&dev->mutex);
-
-	ret = dev->drv->sta_add(dev, vif, sta);
-	if (ret)
-		goto out;
 
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++) {
 		struct mt76_txq *mtxq;
@@ -669,6 +661,21 @@ mt76_sta_add(struct mt76_dev *dev, struct ieee80211_vif *vif,
 
 		mt76_txq_init(dev, sta->txq[i]);
 	}
+}
+EXPORT_SYMBOL_GPL(mt76_sta_init_tx_queue);
+
+static int
+mt76_sta_add(struct mt76_dev *dev, struct ieee80211_vif *vif,
+	     struct ieee80211_sta *sta)
+{
+	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
+	int ret;
+
+	mutex_lock(&dev->mutex);
+
+	ret = dev->drv->sta_add(dev, vif, sta);
+	if (ret)
+		goto out;
 
 	ewma_signal_init(&wcid->rssi);
 	rcu_assign_pointer(dev->wcid[wcid->idx], wcid);

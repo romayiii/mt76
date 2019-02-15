@@ -82,15 +82,6 @@ void mt76_tx_free(struct mt76_dev *dev)
 				 DMA_TO_DEVICE);
 }
 
-static int
-mt76_txq_get_qid(struct ieee80211_txq *txq)
-{
-	if (!txq->sta)
-		return MT_TXQ_BE;
-
-	return txq->ac;
-}
-
 static void
 mt76_check_agg_ssn(struct mt76_txq *mtxq, struct sk_buff *skb)
 {
@@ -601,16 +592,17 @@ void mt76_txq_remove(struct mt76_dev *dev, struct ieee80211_txq *txq)
 }
 EXPORT_SYMBOL_GPL(mt76_txq_remove);
 
-void mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq)
+void __mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq,
+		     int qid)
 {
 	struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
 
 	INIT_LIST_HEAD(&mtxq->list);
 	skb_queue_head_init(&mtxq->retry_q);
 
-	mtxq->hwq = &dev->q_tx[mt76_txq_get_qid(txq)];
+	mtxq->hwq = &dev->q_tx[qid];
 }
-EXPORT_SYMBOL_GPL(mt76_txq_init);
+EXPORT_SYMBOL_GPL(__mt76_txq_init);
 
 u8 mt76_ac_to_hwq(u8 ac)
 {
