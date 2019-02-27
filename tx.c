@@ -261,6 +261,7 @@ mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 	int qid = skb_get_queue_mapping(skb);
 	struct mt76_hw_queue *hwq;
 	struct mt76_queue *q;
+	bool stop;
 
 	if (WARN_ON(qid >= MT_TXQ_PSD)) {
 		qid = MT_TXQ_BE;
@@ -291,9 +292,14 @@ mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 	dev->queue_ops->tx_queue_skb(dev, q, skb, wcid, sta);
 	dev->queue_ops->kick(dev, hwq);
 
-	if (hwq->queued > hwq->ndesc - 8)
-		ieee80211_stop_queue(dev->hw, skb_get_queue_mapping(skb));
+	stop = hwq->queued > hwq->ndesc - 8 && !hwq->stopped;
+	if (stop)
+		hwq->stopped = true;
+
 	spin_unlock_bh(&hwq->lock);
+
+	if (stop)
+		ieee80211_stop_queue(dev->hw, skb_get_queue_mapping(skb));
 }
 EXPORT_SYMBOL_GPL(mt76_tx);
 

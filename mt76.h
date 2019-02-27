@@ -129,6 +129,7 @@ struct mt76_hw_queue {
 
 	int buf_size;
 	u8 buf_offset;
+	bool stopped;
 
 	u8 hw_idx;
 

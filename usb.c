@@ -664,7 +664,10 @@ static void mt76u_tx_tasklet(unsigned long data)
 			spin_lock_bh(&hwq->lock);
 		}
 		mt76_txq_schedule(dev, q);
-		wake = i < IEEE80211_NUM_ACS && hwq->queued < hwq->ndesc - 8;
+		wake = hwq->stopped && hwq->queued < hwq->ndesc - 8;
+		if (wake)
+			hwq->stopped = false;
+
 		if (!hwq->queued)
 			wake_up(&dev->tx_wait);
 

@@ -193,7 +193,10 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 	else
 		mt76_dma_sync_idx(dev, hwq);
 
-	wake = wake && qid < IEEE80211_NUM_ACS && hwq->queued < hwq->ndesc - 8;
+	wake = wake && hwq->stopped &&
+	       qid < IEEE80211_NUM_ACS && hwq->queued < hwq->ndesc - 8;
+	if (wake)
+		hwq->stopped = false;
 
 	if (!hwq->queued)
 		wake_up(&dev->tx_wait);
