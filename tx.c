@@ -258,8 +258,9 @@ mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
-	struct mt76_queue *q;
 	int qid = skb_get_queue_mapping(skb);
+	struct mt76_queue *q;
+	bool stop;
 
 	if (WARN_ON(qid >= MT_TXQ_PSD)) {
 		qid = MT_TXQ_BE;
@@ -289,9 +290,14 @@ mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 	dev->queue_ops->tx_queue_skb(dev, q, skb, wcid, sta);
 	dev->queue_ops->kick(dev, q);
 
-	if (q->queued > q->ndesc - 8)
-		ieee80211_stop_queue(dev->hw, skb_get_queue_mapping(skb));
+	stop = q->queued > q->ndesc - 8 && !q->stopped;
+	if (stop)
+		q->stopped = true;
+
 	spin_unlock_bh(&q->lock);
+
+	if (stop)
+		ieee80211_stop_queue(dev->hw, skb_get_queue_mapping(skb));
 }
 EXPORT_SYMBOL_GPL(mt76_tx);
 
