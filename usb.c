@@ -635,7 +635,7 @@ static void mt76u_tx_tasklet(unsigned long data)
 
 	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 		sq = &dev->q_tx[i];
-		q = &sq->q;
+		q = sq->q;
 
 		spin_lock_bh(&q->lock);
 		while (true) {
@@ -732,7 +732,7 @@ mt76u_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 		   struct sk_buff *skb, struct mt76_wcid *wcid,
 		   struct ieee80211_sta *sta)
 {
-	struct mt76_queue *q = &dev->q_tx[qid].q;
+	struct mt76_queue *q = dev->q_tx[qid].q;
 	struct mt76u_buf *buf;
 	u16 idx = q->tail;
 	int err;
@@ -795,9 +795,13 @@ static int mt76u_alloc_tx(struct mt76_dev *dev)
 	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 		INIT_LIST_HEAD(&dev->q_tx[i].swq);
 
-		q = &dev->q_tx[i].q;
+		q = devm_kzalloc(dev->dev, sizeof(*q), GFP_KERNEL);
+		if (!q)
+			return -ENOMEM;
+
 		spin_lock_init(&q->lock);
 		q->hw_idx = mt76_ac_to_hwq(i);
+		dev->q_tx[i].q = q;
 
 		q->entry = devm_kcalloc(dev->dev,
 					MT_NUM_TX_ENTRIES, sizeof(*q->entry),
@@ -834,7 +838,7 @@ static void mt76u_free_tx(struct mt76_dev *dev)
 	int i, j;
 
 	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
-		q = &dev->q_tx[i].q;
+		q = dev->q_tx[i].q;
 		for (j = 0; j < q->ndesc; j++)
 			usb_free_urb(q->entry[j].ubuf.urb);
 	}
@@ -846,7 +850,7 @@ static void mt76u_stop_tx(struct mt76_dev *dev)
 	int i, j;
 
 	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
-		q = &dev->q_tx[i].q;
+		q = dev->q_tx[i].q;
 		for (j = 0; j < q->ndesc; j++)
 			usb_kill_urb(q->entry[j].ubuf.urb);
 	}

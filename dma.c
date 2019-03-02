@@ -147,7 +147,7 @@ static void
 mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 {
 	struct mt76_sw_queue *sq = &dev->q_tx[qid];
-	struct mt76_queue *q = &sq->q;
+	struct mt76_queue *q = sq->q;
 	struct mt76_queue_entry entry;
 	bool wake = false;
 	int last;
@@ -258,7 +258,7 @@ static int
 mt76_dma_tx_queue_skb_raw(struct mt76_dev *dev, enum mt76_txq_id qid,
 			  struct sk_buff *skb, u32 tx_info)
 {
-	struct mt76_queue *q = &dev->q_tx[qid].q;
+	struct mt76_queue *q = dev->q_tx[qid].q;
 	struct mt76_queue_buf buf;
 	dma_addr_t addr;
 
@@ -282,7 +282,7 @@ int mt76_dma_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta)
 {
-	struct mt76_queue *q = &dev->q_tx[qid].q;
+	struct mt76_queue *q = dev->q_tx[qid].q;
 	struct mt76_queue_entry e;
 	struct mt76_txwi_cache *t;
 	struct mt76_queue_buf buf[32];

@@ -136,7 +136,7 @@ struct mt76_queue {
 };
 
 struct mt76_sw_queue {
-	struct mt76_queue q;
+	struct mt76_queue *q;
 
 	struct list_head swq;
 	int swq_queued;

@@ -283,7 +283,7 @@ mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 			mt76_check_agg_ssn(mtxq, skb);
 	}
 
-	q = &dev->q_tx[qid].q;
+	q = dev->q_tx[qid].q;
 
 	spin_lock_bh(&q->lock);
 	dev->queue_ops->tx_queue_skb(dev, qid, skb, wcid, sta);
@@ -345,7 +345,7 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 {
 	struct mt76_dev *dev = hw->priv;
 	struct sk_buff *last_skb = NULL;
-	struct mt76_queue *hwq = &dev->q_tx[MT_TXQ_PSD].q;
+	struct mt76_queue *hwq = dev->q_tx[MT_TXQ_PSD].q;
 	int i;
 
 	spin_lock_bh(&hwq->lock);
@@ -388,7 +388,7 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_sw_queue *sq,
 	struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
 	enum mt76_txq_id qid = mt76_txq_get_qid(txq);
 	struct mt76_wcid *wcid = mtxq->wcid;
-	struct mt76_queue *hwq = &sq->q;
+	struct mt76_queue *hwq = sq->q;
 	struct ieee80211_tx_info *info;
 	struct sk_buff *skb;
 	int n_frames = 1, limit;
@@ -478,7 +478,7 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_sw_queue *sq,
 static int
 mt76_txq_schedule_list(struct mt76_dev *dev, struct mt76_sw_queue *sq)
 {
-	struct mt76_queue *hwq = &sq->q;
+	struct mt76_queue *hwq = sq->q;
 	struct mt76_txq *mtxq, *mtxq_last;
 	int len = 0;
 
@@ -545,7 +545,7 @@ void mt76_txq_schedule_all(struct mt76_dev *dev)
 	int i;
 
 	for (i = 0; i <= MT_TXQ_BK; i++) {
-		struct mt76_queue *q = &dev->q_tx[i].q;
+		struct mt76_queue *q = dev->q_tx[i].q;
 
 		spin_lock_bh(&q->lock);
 		mt76_txq_schedule(dev, &dev->q_tx[i]);
@@ -568,7 +568,7 @@ void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta,
 			continue;
 
 		mtxq = (struct mt76_txq *)txq->drv_priv;
-		hwq = &mtxq->swq->q;
+		hwq = mtxq->swq->q;
 
 		spin_lock_bh(&hwq->lock);
 		mtxq->send_bar = mtxq->aggr && send_bar;
@@ -584,7 +584,7 @@ void mt76_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq)
 	struct mt76_dev *dev = hw->priv;
 	struct mt76_txq *mtxq = (struct mt76_txq *)txq->drv_priv;
 	struct mt76_sw_queue *sq = mtxq->swq;
-	struct mt76_queue *hwq = &sq->q;
+	struct mt76_queue *hwq = sq->q;
 
 	if (!test_bit(MT76_STATE_RUNNING, &dev->state))
 		return;
@@ -607,7 +607,7 @@ void mt76_txq_remove(struct mt76_dev *dev, struct ieee80211_txq *txq)
 		return;
 
 	mtxq = (struct mt76_txq *) txq->drv_priv;
-	hwq = &mtxq->swq->q;
+	hwq = mtxq->swq->q;
 
 	spin_lock_bh(&hwq->lock);
 	if (!list_empty(&mtxq->list))
