@@ -5,16 +5,17 @@
 #include "../dma.h"
 
 static int
-mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
+mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_sw_queue *q,
 		     int idx, int n_desc)
 {
 	int err;
 
-	err = mt76_queue_alloc(dev, q, idx, n_desc, 0,
+	err = mt76_queue_alloc(dev, &q->q, idx, n_desc, 0,
 			       MT_TX_RING_BASE);
 	if (err < 0)
 		return err;
 
+	INIT_LIST_HEAD(&q->swq);
 	mt7603_irq_enable(dev, MT_INT_TX_DONE(idx));
 
 	return 0;
