@@ -507,26 +507,29 @@ void mt7615_mcu_exit(struct mt7615_dev *dev)
 int mt7615_mcu_set_eeprom(struct mt7615_dev *dev)
 {
 	struct {
-		struct {
-			u8 buffer_mode;
-			u8 pad;
-			u16 len;
-		} __packed hdr;
-		u8 val[__MT_EE_MAX - MT_EE_NIC_CONF_0];
-	} req = {
-		.hdr= {
-			.buffer_mode = 1,
-			.len = __MT_EE_MAX - MT_EE_NIC_CONF_0,
-		},
+		u8 buffer_mode;
+		u8 pad;
+		u16 len;
+	} __packed req_hdr = {
+		.buffer_mode = 1,
+		.len = __MT_EE_MAX - MT_EE_NIC_CONF_0,
 	};
-	u8 *eep = (u8 *)dev->mt76.eeprom.data;
-	u16 off;
+	int ret, len = sizeof(req_hdr) + __MT_EE_MAX - MT_EE_NIC_CONF_0;
+	u8 *req, *eep = (u8 *)dev->mt76.eeprom.data;
 
-	for (off = MT_EE_NIC_CONF_0; off < __MT_EE_MAX; off++)
-		req.val[off - MT_EE_NIC_CONF_0] = eep[off];
+	req = kzalloc(len, GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
 
-	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_EFUSE_BUFFER_MODE,
-				   &req, sizeof(req), true);
+	memcpy(req, &req_hdr, sizeof(req_hdr));
+	memcpy(req + sizeof(req_hdr), eep + MT_EE_NIC_CONF_0,
+	       __MT_EE_MAX - MT_EE_NIC_CONF_0);
+
+	ret = __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_EFUSE_BUFFER_MODE,
+				  req, len, true);
+	kfree(req);
+
+	return ret;
 }
 
 int mt7615_mcu_init_mac(struct mt7615_dev *dev)
@@ -734,7 +737,7 @@ int mt7615_mcu_set_bss_info(struct mt7615_dev *dev,
 	} __packed;
 	int len = sizeof(struct req_hdr) + sizeof(struct bss_info_basic);
 	int ret, i, features = BIT(BSS_INFO_BASIC), ntlv = 1;
-	u32 conn_type = NETWORK_INFRA, net_type = 0;
+	u32 conn_type = 0, net_type = NETWORK_INFRA;
 	u8 *buf, *data, tx_wlan_idx = 0;
 	struct req_hdr *hdr;
 
@@ -789,7 +792,7 @@ int mt7615_mcu_set_bss_info(struct mt7615_dev *dev,
 
 	data = buf + sizeof(*hdr);
 	for (i = 0; i < BSS_INFO_MAX_NUM; i++) {
-		int tag = ffs(features & BIT(i)) - 1;
+		int tag = max_t(int, ffs(features & BIT(i)) - 1, 0);
 
 		switch (tag) {
 		case BSS_INFO_OMAC:
@@ -1098,6 +1101,8 @@ int mt7615_mcu_set_sta_rec(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 int mt7615_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       int en)
 {
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
 	struct req {
 		u8 omac_idx;
 		u8 enable;
@@ -1113,14 +1118,18 @@ int mt7615_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		/* bss color change */
 		u8 bcc_cnt;
 		__le16 bcc_ie_pos;
-	} __packed req = {0};
-	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
-	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
-	struct sk_buff *skb;
+	} __packed req = {
+		.omac_idx = mvif->omac_idx,
+		.enable = en,
+		.wlan_idx = wcid->idx,
+		.band_idx = mvif->band_idx,
+		/* pky_type: 0 for bcn, 1 for tim */
+		.pkt_type = 0,
+	};
 	u16 tim_off, tim_len;
+	struct sk_buff *skb;
 
 	skb = ieee80211_beacon_get_tim(mt76_hw(dev), vif, &tim_off, &tim_len);
-
 	if (!skb)
 		return -EINVAL;
 
@@ -1133,16 +1142,10 @@ int mt7615_mcu_set_bcn(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 	mt7615_mac_write_txwi(dev, (__le32 *)(req.pkt), skb, wcid, NULL,
 			      0, NULL);
 	memcpy(req.pkt + MT_TXD_SIZE, skb->data, skb->len);
-	dev_kfree_skb(skb);
-
-	req.omac_idx = mvif->omac_idx;
-	req.enable = en;
-	req.wlan_idx = wcid->idx;
-	req.band_idx = mvif->band_idx;
-	/* pky_type: 0 for bcn, 1 for tim */
-	req.pkt_type = 0;
 	req.pkt_len = cpu_to_le16(MT_TXD_SIZE + skb->len);
 	req.tim_ie_pos = cpu_to_le16(MT_TXD_SIZE + tim_off);
+
+	dev_kfree_skb(skb);
 
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_BCN_OFFLOAD,
 				   &req, sizeof(req), true);
@@ -1309,7 +1312,7 @@ int mt7615_mcu_set_ht_cap(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 	sta_hdr->bss_idx = mvif->idx;
 	sta_hdr->wlan_idx = msta->wcid.idx;
 	sta_hdr->is_tlv_append = 1;
-	ntlv =  sta->vht_cap.vht_supported ? 2 : 1;
+	ntlv = sta->vht_cap.vht_supported ? 2 : 1;
 	sta_hdr->tlv_num = cpu_to_le16(ntlv);
 	sta_hdr->muar_idx = mvif->omac_idx;
 	buf_len = sizeof(*sta_hdr);
