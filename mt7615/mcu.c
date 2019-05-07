@@ -792,7 +792,7 @@ int mt7615_mcu_set_bss_info(struct mt7615_dev *dev,
 
 	data = buf + sizeof(*hdr);
 	for (i = 0; i < BSS_INFO_MAX_NUM; i++) {
-		int tag = max_t(int, ffs(features & BIT(i)) - 1, 0);
+		int tag = ffs(features & BIT(i)) - 1;
 
 		switch (tag) {
 		case BSS_INFO_OMAC:
