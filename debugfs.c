@@ -38,9 +38,9 @@ mt76_queues_read(struct seq_file *s, void *data)
 			continue;
 
 		seq_printf(s,
-			   "%d:	queued=%d head=%d tail=%d swq_queued=%d\n",
+			   "%d: queued=%d head=%d tail=%d swq_q=%d hwb_q=%d\n",
 			   i, q->q->queued, q->q->head, q->q->tail,
-			   q->swq_queued);
+			   q->swq_queued, q->q->batch.queued);
 	}
 
 	return 0;

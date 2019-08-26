@@ -352,6 +352,8 @@ int mt7615_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
 
+	msta->b_hwq.hwq_bid = -1;
+
 	mt7615_mcu_add_wtbl(dev, vif, sta);
 	mt7615_mcu_set_sta_rec(dev, vif, sta, 1);
 
@@ -371,9 +373,14 @@ void mt7615_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
+	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
 
 	mt7615_mcu_set_sta_rec(dev, vif, sta, 0);
 	mt7615_mcu_del_wtbl(dev, sta);
+
+	spin_lock_bh(&dev->token_lock);
+	__mt7615_mac_sta_remove_batch(dev, msta);
+	spin_unlock_bh(&dev->token_lock);
 }
 
 static void mt7615_sta_rate_tbl_update(struct ieee80211_hw *hw,
