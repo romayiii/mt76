@@ -1700,7 +1700,7 @@ void mt7603_mac_work(struct work_struct *work)
 	mutex_lock(&dev->mt76.mutex);
 
 	dev->mac_work_count++;
-	mt7603_update_channel(&dev->mt76);
+	mt76_update_survey(&dev->mt76);
 	mt7603_edcca_check(dev);
 
 	if (dev->mac_work_count == 10)
