@@ -186,6 +186,41 @@ static void mt7622_dma_sched_init(struct mt7615_dev *dev)
 	mt76_wr(dev, reg + MT_DMASHDL_SCHED_SET1, 0xedcba987);
 }
 
+static void mt7663_dma_sched_init(struct mt7615_dev *dev)
+{
+	int i;
+
+	mt76_rmw(dev, MT_DMA_SHDL(MT_DMASHDL_PKT_MAX_SIZE),
+		 MT_DMASHDL_PKT_MAX_SIZE_PLE | MT_DMASHDL_PKT_MAX_SIZE_PSE,
+		 FIELD_PREP(MT_DMASHDL_PKT_MAX_SIZE_PLE, 1) |
+		 FIELD_PREP(MT_DMASHDL_PKT_MAX_SIZE_PSE, 8));
+
+	/* enable refill control group 0, 1, 2, 4, 5 */
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_REFILL), 0xffc80000);
+	/* enable group 0, 1, 2, 4, 5, 15 */
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_OPTIONAL), 0x70068037);
+
+	/* each group min quota must larger then PLE_PKT_MAX_SIZE_NUM */
+	for (i = 0; i < 5; i++)
+		mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_GROUP_QUOTA(i)),
+			FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MIN, 0x40) |
+			FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MAX, 0x800));
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_GROUP_QUOTA(5)),
+		FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MIN, 0x40) |
+		FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MAX, 0x40));
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_GROUP_QUOTA(15)),
+		FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MIN, 0x20) |
+		FIELD_PREP(MT_DMASHDL_GROUP_QUOTA_MAX, 0x20));
+
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(0)), 0x42104210);
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(1)), 0x42104210);
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(2)), 0x00050005);
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_Q_MAP(3)), 0);
+	/* ALTX0 and ALTX1 QID mapping to group 5 */
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_SCHED_SET0), 0x6012345f);
+	mt76_wr(dev, MT_DMA_SHDL(MT_DMASHDL_SCHED_SET1), 0xedcba987);
+}
+
 int mt7615_dma_init(struct mt7615_dev *dev)
 {
 	int rx_ring_size = MT7615_RX_RING_SIZE;
@@ -197,10 +232,6 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 		MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE |
 		MT_WPDMA_GLO_CFG_FIFO_LITTLE_ENDIAN |
 		MT_WPDMA_GLO_CFG_OMIT_TX_INFO);
-
-	if (!is_mt7622(&dev->mt76))
-		mt76_set(dev, MT_WPDMA_GLO_CFG,
-			 MT_WPDMA_GLO_CFG_FIRST_TOKEN_ONLY);
 
 	mt76_rmw_field(dev, MT_WPDMA_GLO_CFG,
 		       MT_WPDMA_GLO_CFG_TX_BT_SIZE_BIT0, 0x1);
@@ -215,6 +246,9 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 		       MT_WPDMA_GLO_CFG_MULTI_DMA_EN, 0x3);
 
 	if (is_mt7615(&dev->mt76)) {
+		mt76_set(dev, MT_WPDMA_GLO_CFG,
+			 MT_WPDMA_GLO_CFG_FIRST_TOKEN_ONLY);
+
 		mt76_wr(dev, MT_WPDMA_GLO_CFG1, 0x1);
 		mt76_wr(dev, MT_WPDMA_TX_PRE_CFG, 0xf0000);
 		mt76_wr(dev, MT_WPDMA_RX_PRE_CFG, 0xf7f0000);
@@ -270,6 +304,9 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 
 	if (is_mt7622(&dev->mt76))
 		mt7622_dma_sched_init(dev);
+
+	if (is_mt7663(&dev->mt76))
+		mt7663_dma_sched_init(dev);
 
 	return 0;
 }

@@ -229,8 +229,15 @@ enum tx_phy_bandwidth {
 #define MT_TXD6_FIXED_BW		BIT(2)
 #define MT_TXD6_BW			GENMASK(1, 0)
 
+/* MT7663 DW7 HW-AMSDU */
+#define MT_TXD7_HW_AMSDU_CAP		BIT(30)
 #define MT_TXD7_TYPE			GENMASK(21, 20)
 #define MT_TXD7_SUB_TYPE		GENMASK(19, 16)
+#define MT_TXD7_SPE_IDX			GENMASK(15, 11)
+#define MT_TXD7_SPE_IDX_SLE		BIT(10)
+
+#define MT_TXD8_L_TYPE			GENMASK(5, 4)
+#define MT_TXD8_L_SUB_TYPE		GENMASK(3, 0)
 
 #define MT_TX_RATE_STBC			BIT(11)
 #define MT_TX_RATE_NSS			GENMASK(10, 9)

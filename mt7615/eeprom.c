@@ -136,6 +136,8 @@ static void mt7615_eeprom_parse_hw_cap(struct mt7615_dev *dev)
 	/* read tx-rx mask from eeprom */
 	val = mt76_rr(dev, MT_TOP_STRAP_STA);
 	max_nss = val & MT_TOP_3NSS ? 3 : 4;
+	if (is_mt7663(&dev->mt76))
+		max_nss = max_nss / 2;
 
 	tx_mask =  FIELD_GET(MT_EE_NIC_CONF_TX_MASK,
 			     eeprom[MT_EE_NIC_CONF_0]);
@@ -247,6 +249,18 @@ static void mt7622_apply_cal_free_data(struct mt7615_dev *dev)
 	}
 }
 
+static void mt7615_cal_free_data(struct mt7615_dev *dev)
+{
+	switch (mt76_chip(&dev->mt76)) {
+	case 0x7622:
+		mt7622_apply_cal_free_data(dev);
+		break;
+	case 0x7615:
+		mt7615_apply_cal_free_data(dev);
+		break;
+	}
+}
+
 int mt7615_eeprom_init(struct mt7615_dev *dev)
 {
 	int ret;
@@ -259,10 +273,8 @@ int mt7615_eeprom_init(struct mt7615_dev *dev)
 	if (ret && dev->mt76.otp.data)
 		memcpy(dev->mt76.eeprom.data, dev->mt76.otp.data,
 		       MT7615_EEPROM_SIZE);
-	else if (is_mt7622(&dev->mt76))
-		mt7622_apply_cal_free_data(dev);
 	else
-		mt7615_apply_cal_free_data(dev);
+		mt7615_cal_free_data(dev);
 
 	mt7615_eeprom_parse_hw_cap(dev);
 	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
