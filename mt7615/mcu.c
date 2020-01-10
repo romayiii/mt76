@@ -1746,7 +1746,9 @@ int mt7615_mcu_set_tx_ba(struct mt7615_dev *dev,
 	wtbl_ba->sn = add ? cpu_to_le16(params->ssn) : 0;
 	wtbl_ba->ba_en = add;
 
-	if (add) {
+	if (is_mt7663(&dev->mt76)) {
+		wtbl_ba->ba_winsize = cpu_to_le16(params->buf_size);
+	} else if (add) {
 		u8 idx, ba_range[] = { 4, 8, 12, 24, 36, 48, 54, 64 };
 
 		for (idx = 7; idx > 0; idx--) {
