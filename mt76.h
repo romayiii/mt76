@@ -403,11 +403,6 @@ struct mt76_mcu {
 #define MT_NUM_RX_ENTRIES	128
 #define MCU_RESP_URB_SIZE	1024
 struct mt76_usb {
-	struct mutex usb_ctrl_mtx;
-	__le32 reg_val;
-	u8 *data;
-	u16 data_len;
-
 	struct tasklet_struct rx_tasklet;
 	struct workqueue_struct *wq;
 	struct work_struct stat_work;
@@ -424,6 +419,12 @@ struct mt76_usb {
 		u32 base;
 		bool burst;
 	} mcu;
+
+	struct mutex usb_ctrl_mtx;
+	union {
+		u8 data[128];
+		__le32 reg_val;
+	} ____cacheline_aligned;
 };
 
 struct mt76_mmio {

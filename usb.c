@@ -202,7 +202,7 @@ static void mt76u_copy(struct mt76_dev *dev, u32 offset,
 
 	mutex_lock(&usb->usb_ctrl_mtx);
 	while (i < len) {
-		current_batch_size = min_t(int, usb->data_len, len - i);
+		current_batch_size = min_t(int, sizeof(usb->data), len - i);
 		memcpy(usb->data, val + i, current_batch_size);
 		ret = __mt76u_vendor_request(dev, MT_VEND_MULTI_WRITE,
 					     USB_DIR_OUT | USB_TYPE_VENDOR,
@@ -226,7 +226,7 @@ static void mt76u_copy_ext(struct mt76_dev *dev, u32 offset,
 	len = round_up(len, 4);
 	mutex_lock(&usb->usb_ctrl_mtx);
 	while (i < len) {
-		batch_len = min_t(int, usb->data_len, len - i);
+		batch_len = min_t(int, sizeof(usb->data), len - i);
 		memcpy(usb->data, val + i, batch_len);
 		ret = __mt76u_vendor_request(dev, MT_VEND_WRITE_EXT,
 					     USB_DIR_OUT | USB_TYPE_VENDOR,
@@ -251,7 +251,7 @@ mt76u_read_copy_ext(struct mt76_dev *dev, u32 offset,
 	len = round_up(len, 4);
 	mutex_lock(&usb->usb_ctrl_mtx);
 	while (i < len) {
-		batch_len = min_t(int, usb->data_len, len - i);
+		batch_len = min_t(int, sizeof(usb->data), len - i);
 		ret = __mt76u_vendor_request(dev, MT_VEND_READ_EXT,
 					     USB_DIR_IN | USB_TYPE_VENDOR,
 					     (offset + i) >> 16, offset + i,
@@ -1163,16 +1163,6 @@ int mt76u_init(struct mt76_dev *dev,
 	usb->wq = alloc_workqueue("mt76u", WQ_UNBOUND, 0);
 	if (!usb->wq)
 		return -ENOMEM;
-
-	usb->data_len = usb_maxpacket(udev, usb_sndctrlpipe(udev, 0), 1);
-	if (usb->data_len < 32)
-		usb->data_len = 32;
-
-	usb->data = devm_kmalloc(dev->dev, usb->data_len, GFP_KERNEL);
-	if (!usb->data) {
-		mt76u_deinit(dev);
-		return -ENOMEM;
-	}
 
 	mutex_init(&usb->usb_ctrl_mtx);
 	dev->bus = &mt76u_ops;
