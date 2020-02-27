@@ -355,6 +355,35 @@ mt7615_mcu_sched_scan_done_event(struct mt7615_dev *dev, struct sk_buff *skb)
 	ieee80211_sched_scan_results(mphy->hw);
 }
 
+void mt7615_mcu_dbg_msg_event(struct mt7615_dev *dev, struct sk_buff *skb)
+{
+	struct mt7615_mcu_rxd *rxd = (struct mt7615_mcu_rxd *)skb->data;
+	struct mtk_ofl_dbg_msg {
+		__le16 id; /* 0: unknown, 1:print, 2:fwlog */
+		u8 type; /*0: unknown, 1: mem8, 2:mem32, 3:ascii 4:binary */
+		u8 flag;
+		__le32 value;
+		__le16 msg_size;
+		u8 msg[512];
+	} __packed *dbg_msg;
+	int i;
+
+	skb_pull(skb, sizeof(*rxd));
+	dbg_msg = (struct mtk_ofl_dbg_msg *)skb->data;
+
+	dev_err(dev->mt76.dev, "id = 0x%x, type = 0x%x, flag = 0x%x, value = 0x%x, msg_size = %d\n",
+		le16_to_cpu(dbg_msg->id), dbg_msg->type, dbg_msg->flag,
+		le32_to_cpu(dbg_msg->value), le16_to_cpu(dbg_msg->msg_size));
+
+	if (dbg_msg->type == 0x3) {
+		for (i = 0 ; i < le16_to_cpu(dbg_msg->msg_size); i++)
+			if (!dbg_msg->msg[i])
+				dbg_msg->msg[i]=' ';
+
+		dev_err(dev->mt76.dev, "%s\n", dbg_msg->msg);
+	}
+}
+
 static void
 mt7615_mcu_rx_unsolicited_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
@@ -369,6 +398,9 @@ mt7615_mcu_rx_unsolicited_event(struct mt7615_dev *dev, struct sk_buff *skb)
 		break;
 	case MCU_EVENT_SCHED_SCAN_DONE:
 		mt7615_mcu_sched_scan_done_event(dev, skb);
+		break;
+	case MCU_EVENT_DBG_MSG:
+		mt7615_mcu_dbg_msg_event(dev, skb);
 		break;
 	default:
 		break;
@@ -386,6 +418,7 @@ void mt7615_mcu_rx_event(struct mt7615_dev *dev, struct sk_buff *skb)
 	    rxd->ext_eid == MCU_EXT_EVENT_PS_SYNC ||
 	    rxd->eid == MCU_EVENT_SCHED_SCAN_DONE ||
 	    rxd->eid == MCU_EVENT_SCAN_DONE ||
+	    rxd->eid == MCU_EVENT_DBG_MSG ||
 	    !rxd->seq)
 		mt7615_mcu_rx_unsolicited_event(dev, skb);
 	else
