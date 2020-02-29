@@ -1338,63 +1338,73 @@ int mt7615_mcu_set_bmc(struct mt7615_dev *dev,
 		       struct ieee80211_vif *vif, bool en)
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
-	struct {
-		struct sta_req_hdr hdr;
-		struct sta_rec_basic basic;
-		u8 buf[MT7615_WTBL_UPDATE_MAX_SIZE];
-	} __packed req = {
-		.hdr = {
-			.bss_idx = mvif->idx,
-			.wlan_idx = mvif->sta.wcid.idx,
-			.tlv_num = cpu_to_le16(1),
-			.is_tlv_append = 1,
-			.muar_idx = mvif->omac_idx,
-		},
-		.basic = {
-			.tag = cpu_to_le16(STA_REC_BASIC),
-			.len = cpu_to_le16(sizeof(struct sta_rec_basic)),
-			.conn_type = cpu_to_le32(CONNECTION_INFRA_BC),
-		},
-	};
 	struct sta_rec_wtbl *wtbl = NULL;
+	struct sta_rec_basic *sta_basic;
 	struct wtbl_req_hdr *wtbl_hdr;
 	struct wtbl_generic *wtbl_g;
+	struct sta_req_hdr *sta_hdr;
 	struct wtbl_rx *wtbl_rx;
-	u8 *buf = req.buf;
+	int wtbl_len, len, err;
+	u8 *data, *buf;
 
-	eth_broadcast_addr(req.basic.peer_addr);
+	wtbl_len = sizeof(*wtbl_hdr);
+	if (en)
+		wtbl_len += sizeof(*wtbl_g) + sizeof(*wtbl_rx);
+	len = sizeof(*sta_hdr) + sizeof(*sta_basic) +
+	      sizeof(*wtbl) + wtbl_len;
+
+	buf = kzalloc(len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	data = buf;
+	sta_hdr = (struct sta_req_hdr *)data;
+	data += sizeof(*sta_hdr);
+	sta_hdr->bss_idx = mvif->idx;
+	sta_hdr->wlan_idx = mvif->sta.wcid.idx;
+	sta_hdr->tlv_num = cpu_to_le16(1);
+	sta_hdr->is_tlv_append = 1;
+	sta_hdr->muar_idx = mvif->omac_idx;
+
+	sta_basic = (struct sta_rec_basic *)data;
+	data += sizeof(*sta_basic);
+	sta_basic->tag = cpu_to_le16(STA_REC_BASIC);
+	sta_basic->len = cpu_to_le16(sizeof(*sta_basic));
+	sta_basic->conn_type = cpu_to_le32(CONNECTION_INFRA_BC);
+	eth_broadcast_addr(sta_basic->peer_addr);
 
 	if (dev->fw_ver > MT7615_FIRMWARE_V1) {
-		req.hdr.tlv_num = cpu_to_le16(2);
-		wtbl = (struct sta_rec_wtbl *)buf;
+		sta_hdr->tlv_num = cpu_to_le16(2);
+
+		wtbl = (struct sta_rec_wtbl *)data;
+		data += sizeof(*wtbl);
 		wtbl->tag = cpu_to_le16(STA_REC_WTBL);
-		buf += sizeof(*wtbl);
 	}
 
-	wtbl_hdr = (struct wtbl_req_hdr *)buf;
-	buf += sizeof(*wtbl_hdr);
+	wtbl_hdr = (struct wtbl_req_hdr *)data;
+	data += sizeof(*wtbl_hdr);
 	wtbl_hdr->wlan_idx = mvif->sta.wcid.idx;
 	wtbl_hdr->operation = WTBL_RESET_AND_SET;
 
 	if (en) {
-		req.basic.conn_state = CONN_STATE_PORT_SECURE;
-		req.basic.extra_info = cpu_to_le16(EXTRA_INFO_VER |
-						   EXTRA_INFO_NEW);
+		sta_basic->conn_state = CONN_STATE_PORT_SECURE;
+		sta_basic->extra_info = cpu_to_le16(EXTRA_INFO_VER |
+						    EXTRA_INFO_NEW);
 	} else {
-		req.basic.conn_state = CONN_STATE_DISCONNECT;
-		req.basic.extra_info = cpu_to_le16(EXTRA_INFO_VER);
+		sta_basic->conn_state = CONN_STATE_DISCONNECT;
+		sta_basic->extra_info = cpu_to_le16(EXTRA_INFO_VER);
 		goto out;
 	}
 
-	wtbl_g = (struct wtbl_generic *)buf;
-	buf += sizeof(*wtbl_g);
+	wtbl_g = (struct wtbl_generic *)data;
+	data += sizeof(*wtbl_g);
 	wtbl_g->tag = cpu_to_le16(WTBL_GENERIC);
 	wtbl_g->len = cpu_to_le16(sizeof(*wtbl_g));
 	wtbl_g->muar_idx = 0xe;
 	eth_broadcast_addr(wtbl_g->peer_addr);
 
-	wtbl_rx = (struct wtbl_rx *)buf;
-	buf += sizeof(*wtbl_rx);
+	wtbl_rx = (struct wtbl_rx *)data;
+	data += sizeof(*wtbl_rx);
 	wtbl_rx->tag = cpu_to_le16(WTBL_RX);
 	wtbl_rx->len = cpu_to_le16(sizeof(*wtbl_rx));
 	wtbl_rx->rv = 1;
@@ -1405,10 +1415,13 @@ int mt7615_mcu_set_bmc(struct mt7615_dev *dev,
 
 out:
 	if (wtbl)
-		wtbl->len = cpu_to_le16(buf - (u8 *)wtbl_hdr);
+		wtbl->len = cpu_to_le16(wtbl_len);
 
-	return mt7615_mcu_send_sta_rec(dev, (u8 *)&req, (u8 *)wtbl_hdr,
-				       buf - (u8 *)wtbl_hdr, en);
+	err = mt7615_mcu_send_sta_rec(dev, buf, (u8 *)wtbl_hdr, wtbl_len, en);
+
+	kfree(buf);
+
+	return err;
 }
 
 int mt7615_mcu_set_sta(struct mt7615_dev *dev, struct ieee80211_vif *vif,
