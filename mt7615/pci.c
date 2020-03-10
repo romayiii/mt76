@@ -32,6 +32,7 @@ static int mt7615_pci_probe(struct pci_dev *pdev,
 		return ret;
 
 	pci_set_master(pdev);
+	pci_enable_msi(pdev);
 
 	ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
 	if (ret)
