@@ -1416,55 +1416,11 @@ mt7615_mcu_uni_rx_ba(struct mt7615_dev *dev,
 }
 
 static int
-mt7615_mcu_uni_set_state(struct mt7615_dev *dev, struct ieee80211_vif *vif,
-			 struct ieee80211_sta *sta, int state)
-{
-	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
-	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
-
-	struct {
-		struct sta_req_hdr hdr;
-		struct sta_rec_state state;
-	} __packed req = {
-		.hdr = {
-			.bss_idx = mvif->idx,
-			.wlan_idx = msta->wcid.idx,
-			.tlv_num = 1,
-			.is_tlv_append = 1,
-			.muar_idx = mvif->omac_idx,
-		},
-		.state = {
-			.tag = cpu_to_le16(STA_REC_STATE),
-			.len = cpu_to_le16(sizeof(struct sta_rec_state)),
-			.state = state,
-		},
-	};
-
-	return __mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD_STA_REC_UPDATE,
-				   &req, sizeof(req), true);
-}
-
-static int
 mt7615_mcu_uni_add_sta(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta, bool enable)
 {
-	int err;
-
-	if (!enable && sta) {
-		err = mt7615_mcu_uni_set_state(dev, vif, sta, 0);
-		if (err < 0)
-			return err;
-
-		return mt7615_mcu_add_sta_cmd(dev, vif, sta, false,
-					      MCU_UNI_CMD_STA_REC_UPDATE);
-	}
-
-	err = mt7615_mcu_add_sta_cmd(dev, vif, sta, enable,
-				     MCU_UNI_CMD_STA_REC_UPDATE);
-	if (err < 0 || !sta)
-		return err;
-
-	return mt7615_mcu_uni_set_state(dev, vif, sta, 2);
+	return mt7615_mcu_add_sta_cmd(dev, vif, sta, enable,
+				      MCU_UNI_CMD_STA_REC_UPDATE);
 }
 
 static const struct mt7615_mcu_ops uni_update_ops = {
