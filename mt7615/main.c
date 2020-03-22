@@ -77,6 +77,7 @@ static void mt7615_stop(struct ieee80211_hw *hw)
 	mutex_lock(&dev->mt76.mutex);
 
 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
+	cancel_delayed_work_sync(&phy->scan_work);
 
 	if (phy != &dev->phy) {
 		mt7615_mcu_set_pm(dev, 1, 1);
@@ -699,6 +700,23 @@ mt7615_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
 	mutex_unlock(&dev->mt76.mutex);
 
 	return 0;
+}
+
+void mt7615_scan_work(struct work_struct *work)
+{
+	struct cfg80211_scan_info info = {
+		.aborted = false,
+	};
+	struct mt7615_phy *phy;
+	bool ext_phy;
+
+	phy = (struct mt7615_phy *)container_of(work, struct mt7615_phy,
+						scan_work.work);
+	ext_phy = phy != &phy->dev->phy;
+	mt7615_mac_rx_classifier(phy->dev, ext_phy, false);
+
+	clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
+	ieee80211_scan_completed(phy->mt76->hw, &info);
 }
 
 static int

@@ -321,10 +321,8 @@ static void
 mt7615_mcu_scan_done_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt7615_mcu_rxd *rxd = (struct mt7615_mcu_rxd *)skb->data;
-	struct cfg80211_scan_info info = {
-		.aborted = false,
-	};
 	struct mt7615_hw_scan_done *event;
+	struct mt7615_phy *phy;
 	struct mt76_phy *mphy;
 
 	skb_pull(skb, sizeof(*rxd));
@@ -334,8 +332,9 @@ mt7615_mcu_scan_done_event(struct mt7615_dev *dev, struct sk_buff *skb)
 	else
 		mphy = &dev->mt76.phy;
 
-	clear_bit(MT76_SCANNING, &mphy->state);
-	ieee80211_scan_completed(mphy->hw, &info);
+	phy = (struct mt7615_phy *)mphy->priv;
+	ieee80211_queue_delayed_work(mphy->hw, &phy->scan_work,
+				     MT7615_HW_SCAN_TIMEOUT);
 }
 
 static void
@@ -2532,7 +2531,9 @@ int mt7615_mcu_hw_scan(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 	if (!skb)
 		return -ENOMEM;
 
-	set_bit(MT76_SCANNING, &phy->mt76->state);
+	mt7615_mac_rx_classifier(dev, ext_phy, true);
+
+	set_bit(MT76_HW_SCANNING, &phy->mt76->state);
 	mvif->scan_seq_num = (mvif->scan_seq_num + 1) & 0x7f;
 
 	req = (struct mt7615_hw_scan_req *)skb_put(skb, sizeof(*req));
@@ -2582,8 +2583,13 @@ int mt7615_mcu_hw_scan(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 	err = __mt76_mcu_skb_send_msg(&dev->mt76, skb, MCU_CMD_START_HW_SCAN,
 				      false);
 	if (err < 0)
-		clear_bit(MT76_SCANNING, &phy->mt76->state);
+		goto err;
 
+	return 0;
+
+err:
+	clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
+	mt7615_mac_rx_classifier(dev, ext_phy, false);
 	return err;
 }
 
@@ -2592,6 +2598,7 @@ int mt7615_mcu_cancel_hw_scan(struct mt7615_phy *phy,
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = phy->dev;
+	bool ext_phy = phy != &dev->phy;
 	struct cfg80211_scan_info info = {
 		.aborted = true,
 	};
@@ -2603,8 +2610,9 @@ int mt7615_mcu_cancel_hw_scan(struct mt7615_phy *phy,
 		.seq_num = mvif->scan_seq_num,
 	};
 
+	mt7615_mac_rx_classifier(dev, ext_phy, false);
 	ieee80211_scan_completed(phy->mt76->hw, &info);
-	clear_bit(MT76_SCANNING, &phy->mt76->state);
+	clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
 
 	return __mt76_mcu_send_msg(&dev->mt76,  MCU_CMD_CANCEL_HW_SCAN, &req,
 				   sizeof(req), false);
