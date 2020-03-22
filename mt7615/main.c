@@ -704,19 +704,42 @@ mt7615_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
 
 void mt7615_scan_work(struct work_struct *work)
 {
-	struct cfg80211_scan_info info = {
-		.aborted = false,
-	};
 	struct mt7615_phy *phy;
+	struct mt7615_dev *dev;
 	bool ext_phy;
 
 	phy = (struct mt7615_phy *)container_of(work, struct mt7615_phy,
 						scan_work.work);
-	ext_phy = phy != &phy->dev->phy;
-	mt7615_mac_rx_classifier(phy->dev, ext_phy, false);
+	dev = phy->dev;
+	ext_phy = phy != &dev->phy;
 
-	clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
-	ieee80211_scan_completed(phy->mt76->hw, &info);
+	mt7615_mac_rx_classifier(dev, ext_phy, false);
+
+	while (true) {
+		struct mt7615_mcu_rxd *rxd;
+		struct sk_buff *skb;
+
+		spin_lock_bh(&dev->mt76.lock);
+		skb = __skb_dequeue(&phy->scan_event_list);
+		spin_unlock_bh(&dev->mt76.lock);
+
+		if (!skb)
+			break;
+
+		rxd = (struct mt7615_mcu_rxd *)skb->data;
+		if (rxd->eid == MCU_EVENT_SCAN_DONE) {
+			struct cfg80211_scan_info info = {
+				.aborted = false,
+			};
+
+			clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
+			ieee80211_scan_completed(phy->mt76->hw, &info);
+		} else {
+			clear_bit(MT76_HW_SCHED_SCANNING, &phy->mt76->state);
+			ieee80211_sched_scan_results(phy->mt76->hw);
+		}
+		dev_kfree_skb(skb);
+	}
 }
 
 static int

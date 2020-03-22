@@ -154,6 +154,7 @@ struct mt7615_phy {
 
 	struct mib_stats mib;
 
+	struct sk_buff_head scan_event_list;
 	struct delayed_work scan_work;
 };
 

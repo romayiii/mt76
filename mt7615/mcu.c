@@ -318,43 +318,25 @@ mt7615_mcu_rx_ext_event(struct mt7615_dev *dev, struct sk_buff *skb)
 }
 
 static void
-mt7615_mcu_scan_done_event(struct mt7615_dev *dev, struct sk_buff *skb)
+mt7615_mcu_scan_event(struct mt7615_dev *dev, struct sk_buff *skb)
 {
-	struct mt7615_mcu_rxd *rxd = (struct mt7615_mcu_rxd *)skb->data;
-	struct mt7615_hw_scan_done *event;
+	u8 *seq_num = skb->data + sizeof(struct mt7615_mcu_rxd);
 	struct mt7615_phy *phy;
 	struct mt76_phy *mphy;
 
-	skb_pull(skb, sizeof(*rxd));
-	event = (struct mt7615_hw_scan_done *)skb->data;
-	if (event->seq_num & BIT(7) && dev->mt76.phy2)
+	if (*seq_num & BIT(7) && dev->mt76.phy2)
 		mphy = dev->mt76.phy2;
 	else
 		mphy = &dev->mt76.phy;
 
 	phy = (struct mt7615_phy *)mphy->priv;
+
+	spin_lock_bh(&dev->mt76.lock);
+	__skb_queue_tail(&phy->scan_event_list, skb);
+	spin_unlock_bh(&dev->mt76.lock);
+
 	ieee80211_queue_delayed_work(mphy->hw, &phy->scan_work,
 				     MT7615_HW_SCAN_TIMEOUT);
-}
-
-static void
-mt7615_mcu_sched_scan_done_event(struct mt7615_dev *dev, struct sk_buff *skb)
-{
-	struct mt7615_mcu_rxd *rxd = (struct mt7615_mcu_rxd *)skb->data;
-	struct nt7615_sched_scan_done *event;
-	struct mt76_phy *mphy;
-
-	skb_pull(skb, sizeof(*rxd));
-	event = (struct nt7615_sched_scan_done *)skb->data;
-	if (event->seq_num & BIT(7) && dev->mt76.phy2)
-		mphy = dev->mt76.phy2;
-	else
-		mphy = &dev->mt76.phy;
-
-	if (!event->status)
-		clear_bit(MT76_SCANNING, &mphy->state);
-
-	ieee80211_sched_scan_results(mphy->hw);
 }
 
 static void
@@ -366,12 +348,10 @@ mt7615_mcu_rx_unsolicited_event(struct mt7615_dev *dev, struct sk_buff *skb)
 	case MCU_EVENT_EXT:
 		mt7615_mcu_rx_ext_event(dev, skb);
 		break;
-	case MCU_EVENT_SCAN_DONE:
-		mt7615_mcu_scan_done_event(dev, skb);
-		break;
 	case MCU_EVENT_SCHED_SCAN_DONE:
-		mt7615_mcu_sched_scan_done_event(dev, skb);
-		break;
+	case MCU_EVENT_SCAN_DONE:
+		mt7615_mcu_scan_event(dev, skb);
+		return;
 	default:
 		break;
 	}
@@ -2714,6 +2694,7 @@ int mt7615_mcu_sched_scan_enable(struct mt7615_phy *phy,
 				 bool enable)
 {
 	struct mt7615_dev *dev = phy->dev;
+	bool ext_phy = phy != &dev->phy;
 	struct {
 		u8 active; /* 0: enabled 1: disabled */
 		u8 rsv[3];
@@ -2723,11 +2704,13 @@ int mt7615_mcu_sched_scan_enable(struct mt7615_phy *phy,
 
 	if (!mt7615_firmware_offload(dev))
 		return -ENOTSUPP;
-    
+
 	if (enable)
-		set_bit(MT76_SCANNING, &phy->mt76->state);
+		set_bit(MT76_HW_SCHED_SCANNING, &phy->mt76->state);
 	else
-		clear_bit(MT76_SCANNING, &phy->mt76->state);
+		clear_bit(MT76_HW_SCHED_SCANNING, &phy->mt76->state);
+
+	mt7615_mac_rx_classifier(phy->dev, ext_phy, enable);
 
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_CMD_SCHED_SCAN_ENABLE,
 				   &req, sizeof(req), false);
