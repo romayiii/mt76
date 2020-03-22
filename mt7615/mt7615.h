@@ -382,6 +382,8 @@ int mt7615_mac_wtbl_set_key(struct mt7615_dev *dev, struct mt76_wcid *wcid,
 			    struct ieee80211_key_conf *key,
 			    enum set_key_cmd cmd);
 void mt7615_mac_reset_work(struct work_struct *work);
+void mt7615_mac_rx_classifier(struct mt7615_dev *dev, int chain,
+			      bool offload);
 
 int mt7615_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);
 int mt7615_mcu_set_dbdc(struct mt7615_dev *dev);

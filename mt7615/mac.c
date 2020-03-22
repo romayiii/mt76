@@ -78,6 +78,30 @@ static struct mt76_wcid *mt7615_rx_get_wcid(struct mt7615_dev *dev,
 	return &sta->vif->sta.wcid;
 }
 
+void mt7615_mac_rx_classifier(struct mt7615_dev *dev, int chain,
+			      bool offload)
+{
+	u32 set, mask;
+
+	mask = MT_DMA_RCFR0_MCU_RX_MGMT |
+	       MT_DMA_RCFR0_MCU_RX_CTL_NON_BAR |
+	       MT_DMA_RCFR0_MCU_RX_CTL_BAR |
+	       MT_DMA_RCFR0_MCU_RX_BYPASS |
+	       MT_DMA_RCFR0_RX_DROPPED_UCAST |
+	       MT_DMA_RCFR0_RX_DROPPED_MCAST;
+
+	if (offload)
+		set = MT_DMA_RCFR0_MCU_RX_MGMT |
+		      MT_DMA_RCFR0_MCU_RX_CTL_NON_BAR |
+		      MT_DMA_RCFR0_MCU_RX_CTL_BAR |
+		      FIELD_PREP(MT_DMA_RCFR0_RX_DROPPED_UCAST, 1);
+	else
+		set = FIELD_PREP(MT_DMA_RCFR0_RX_DROPPED_UCAST, 2) |
+		      FIELD_PREP(MT_DMA_RCFR0_RX_DROPPED_MCAST, 2);
+
+	mt76_rmw(dev, MT_DMA_RCFR0(chain), mask, set);
+}
+
 void mt7615_mac_reset_counters(struct mt7615_dev *dev)
 {
 	int i;
