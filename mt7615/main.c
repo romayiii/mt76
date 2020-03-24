@@ -751,23 +751,17 @@ EXPORT_SYMBOL_GPL(mt7615_set_antenna);
 void mt7615_scan_work(struct work_struct *work)
 {
 	struct mt7615_phy *phy;
-	struct mt7615_dev *dev;
-	bool ext_phy;
 
 	phy = (struct mt7615_phy *)container_of(work, struct mt7615_phy,
 						scan_work.work);
-	dev = phy->dev;
-	ext_phy = phy != &dev->phy;
-
-	mt7615_mac_rx_classifier(dev, ext_phy, false);
 
 	while (true) {
 		struct mt7615_mcu_rxd *rxd;
 		struct sk_buff *skb;
 
-		spin_lock_bh(&dev->mt76.lock);
+		spin_lock_bh(&phy->dev->mt76.lock);
 		skb = __skb_dequeue(&phy->scan_event_list);
-		spin_unlock_bh(&dev->mt76.lock);
+		spin_unlock_bh(&phy->dev->mt76.lock);
 
 		if (!skb)
 			break;

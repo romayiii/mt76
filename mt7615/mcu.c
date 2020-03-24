@@ -2565,8 +2565,6 @@ int mt7615_mcu_hw_scan(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 	if (!skb)
 		return -ENOMEM;
 
-	mt7615_mac_rx_classifier(dev, ext_phy, true);
-
 	set_bit(MT76_HW_SCANNING, &phy->mt76->state);
 	mvif->scan_seq_num = (mvif->scan_seq_num + 1) & 0x7f;
 
@@ -2617,13 +2615,8 @@ int mt7615_mcu_hw_scan(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 	err = __mt76_mcu_skb_send_msg(&dev->mt76, skb, MCU_CMD_START_HW_SCAN,
 				      false);
 	if (err < 0)
-		goto err;
+		clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
 
-	return 0;
-
-err:
-	clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
-	mt7615_mac_rx_classifier(dev, ext_phy, false);
 	return err;
 }
 
@@ -2632,7 +2625,6 @@ int mt7615_mcu_cancel_hw_scan(struct mt7615_phy *phy,
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
 	struct mt7615_dev *dev = phy->dev;
-	bool ext_phy = phy != &dev->phy;
 	struct cfg80211_scan_info info = {
 		.aborted = true,
 	};
@@ -2644,7 +2636,6 @@ int mt7615_mcu_cancel_hw_scan(struct mt7615_phy *phy,
 		.seq_num = mvif->scan_seq_num,
 	};
 
-	mt7615_mac_rx_classifier(dev, ext_phy, false);
 	ieee80211_scan_completed(phy->mt76->hw, &info);
 	clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
 
@@ -2680,7 +2671,6 @@ int mt7615_mcu_sched_scan_req(struct mt7615_phy *phy,
 	req = (struct mt7615_sched_scan_req *)skb_put(skb, sizeof(*req));
 	req->version = 1;
 	req->seq_num = mvif->scan_seq_num | ext_phy << 7;
-	req->stop_on_match = 1;
 	req->scan_func = !!(sreq->flags & NL80211_SCAN_FLAG_RANDOM_ADDR);
 
 	req->ssids_num = sreq->n_ssids;
@@ -2725,7 +2715,6 @@ int mt7615_mcu_sched_scan_enable(struct mt7615_phy *phy,
 				 bool enable)
 {
 	struct mt7615_dev *dev = phy->dev;
-	bool ext_phy = phy != &dev->phy;
 	struct {
 		u8 active; /* 0: enabled 1: disabled */
 		u8 rsv[3];
@@ -2740,8 +2729,6 @@ int mt7615_mcu_sched_scan_enable(struct mt7615_phy *phy,
 		set_bit(MT76_HW_SCHED_SCANNING, &phy->mt76->state);
 	else
 		clear_bit(MT76_HW_SCHED_SCANNING, &phy->mt76->state);
-
-	mt7615_mac_rx_classifier(phy->dev, ext_phy, enable);
 
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_CMD_SCHED_SCAN_ENABLE,
 				   &req, sizeof(req), false);
