@@ -1829,7 +1829,8 @@ mt7615_mcu_send_ram_firmware(struct mt7615_dev *dev,
 
 static const struct wiphy_wowlan_support mt7615_wowlan_support = {
 	.flags = WIPHY_WOWLAN_ANY | WIPHY_WOWLAN_MAGIC_PKT |
-		 WIPHY_WOWLAN_DISCONNECT,
+		 WIPHY_WOWLAN_DISCONNECT | WIPHY_WOWLAN_SUPPORTS_GTK_REKEY |
+		 WIPHY_WOWLAN_GTK_REKEY_FAILURE,
 	.n_patterns = 1,
 	.pattern_min_len = 1,
 	.pattern_max_len = MT7615_WOW_PATTEN_MAX_LEN,
@@ -2963,6 +2964,8 @@ mt7615_mcu_set_wow_ctrl(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 			req.wow_ctrl_tlv.trigger |= BIT(1);
 		if (wowlan->disconnect)
 			req.wow_ctrl_tlv.trigger |= BIT(2);
+		if (wowlan->gtk_rekey_failure)
+			req.wow_ctrl_tlv.trigger |= BIT(3);
 		req.wow_ctrl_tlv.cmd = 1; /* PM_WOWLAN_REQ_START */
 	} else {
 		req.wow_ctrl_tlv.cmd = 2; /* PM_WOWLAN_REQ_STOP */
@@ -3053,4 +3056,37 @@ void mt7615_mcu_set_suspend_iter(void *priv, u8 *mac,
 	mt7615_mcu_set_suspend_mode(phy->dev, vif, suspend, 0, 0);
 	wowlan = suspend ? hw->wiphy->wowlan_config : NULL;
 	mt7615_mcu_set_wow_ctrl(phy->dev, vif, wowlan);
+}
+
+int mt7615_mcu_set_gtk_rekey(struct mt7615_dev *dev,
+			     struct ieee80211_vif *vif,
+			     struct cfg80211_gtk_rekey_data *key)
+{
+	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+	struct mt7615_gtk_rekey_tlv *gtk_tlv;
+	struct sk_buff *skb;
+	struct {
+		u8 bss_idx;
+		u8 pad[3];
+	} __packed hdr = {
+		.bss_idx = mvif->idx,
+	};
+
+	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
+				 sizeof(hdr) + sizeof(*gtk_tlv));
+	if (!skb)
+		return -ENOMEM;
+
+	skb_put_data(skb, &hdr, sizeof(hdr));
+	gtk_tlv = (struct mt7615_gtk_rekey_tlv *)skb_put(skb,
+							 sizeof(*gtk_tlv));
+	gtk_tlv->tag = cpu_to_le16(UNI_OFFLOAD_OFFLOAD_GTK_REKEY);
+	gtk_tlv->len = cpu_to_le16(sizeof(*gtk_tlv));
+
+	memcpy(gtk_tlv->kek, key->kek, NL80211_KEK_LEN);
+	memcpy(gtk_tlv->kck, key->kck, NL80211_KCK_LEN);
+	memcpy(gtk_tlv->replay_ctr, key->replay_ctr, NL80211_REPLAY_CTR_LEN);
+
+	return __mt76_mcu_skb_send_msg(&dev->mt76, skb,
+				       MCU_UNI_CMD_OFFLOAD, true);
 }

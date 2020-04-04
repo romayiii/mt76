@@ -898,6 +898,17 @@ void __maybe_unused mt7615_set_wakeup(struct ieee80211_hw *hw,
 }
 EXPORT_SYMBOL_GPL(mt7615_set_wakeup);
 
+void __maybe_unused
+mt7615_set_rekey_data(struct ieee80211_hw *hw,
+		      struct ieee80211_vif *vif,
+		      struct cfg80211_gtk_rekey_data *data)
+{
+	struct mt7615_dev *dev = mt7615_hw_dev(hw);
+
+	mt7615_mcu_set_gtk_rekey(dev, vif, data);
+}
+EXPORT_SYMBOL_GPL(mt7615_set_rekey_data);
+
 const struct ieee80211_ops mt7615_ops = {
 	.tx = mt7615_tx,
 	.start = mt7615_start,
@@ -935,6 +946,7 @@ const struct ieee80211_ops mt7615_ops = {
 	.suspend = mt7615_suspend,
 	.resume = mt7615_resume,
 	.set_wakeup = mt7615_set_wakeup,
+	.set_rekey_data = mt7615_set_rekey_data,
 #endif /* CONFIG_PM */
 };
 EXPORT_SYMBOL_GPL(mt7615_ops);

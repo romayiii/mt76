@@ -553,6 +553,9 @@ int mt7615_mcu_wait_response(struct mt7615_dev *dev, int cmd, int seq);
 int mt7615_mcu_set_hif_suspend(struct mt7615_dev *dev, bool suspend);
 int mt7615_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan);
 void mt7615_set_wakeup(struct ieee80211_hw *hw, bool enabled);
+void mt7615_set_rekey_data(struct ieee80211_hw *hw,
+			   struct ieee80211_vif *vif,
+			   struct cfg80211_gtk_rekey_data *data);
 int mt7615_resume(struct ieee80211_hw *hw);
 int mt7615_mcu_set_wow_pattern(struct mt7615_dev *dev,
 			       struct ieee80211_vif *vif,
@@ -562,6 +565,9 @@ void mt7615_mcu_set_suspend_iter(void *priv, u8 *mac,
 				 struct ieee80211_vif *vif);
 int mt7615_mcu_set_wow(struct mt7615_dev *dev, struct ieee80211_vif *vif,
 		       bool enable);
+int mt7615_mcu_set_gtk_rekey(struct mt7615_dev *dev,
+			     struct ieee80211_vif *vif,
+			     struct cfg80211_gtk_rekey_data *key);
 
 int __mt7663_load_firmware(struct mt7615_dev *dev);
 
