@@ -286,6 +286,11 @@ static const struct ieee80211_ops mt7663_usb_ops = {
 	.cancel_hw_scan = mt7615_cancel_hw_scan,
 	.sched_scan_start = mt7615_start_sched_scan,
 	.sched_scan_stop = mt7615_stop_sched_scan,
+#ifdef CONFIG_PM
+	.suspend = mt7615_suspend,
+	.resume = mt7615_resume,
+	.set_wakeup = mt7615_set_wakeup,
+#endif /* CONFIG_PM */
 };
 
 static int
