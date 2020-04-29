@@ -1733,7 +1733,7 @@ static int mt7615_load_patch(struct mt7615_dev *dev, u32 addr, const char *name)
 		return -EAGAIN;
 	}
 
-	ret = firmware_request_nowarn(&fw, name, dev->mt76.dev);
+	ret = request_firmware(&fw, name, dev->mt76.dev);
 	if (ret)
 		goto out;
 
